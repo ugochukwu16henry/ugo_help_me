@@ -25,6 +25,7 @@ class ScreenCaptureStatus:
     backend: str
     frames_captured: int
     last_error: str | None
+    focus: dict
 
 
 class ScreenCaptureService:
@@ -37,7 +38,11 @@ class ScreenCaptureService:
         self.event_queue = event_queue
         self.interval_ms = interval_ms
         self.zone_ratio = max(0.1, min(zone_ratio, 1.0))
+        self.focus_mode = "center"
+        self.monitor_index = 1
+        self.custom_region: dict | None = None
         self._stop_event = threading.Event()
+        self._focus_lock = threading.RLock()
         self._thread: threading.Thread | None = None
         self.frames_captured = 0
         self.last_error: str | None = None
@@ -61,7 +66,74 @@ class ScreenCaptureService:
             backend="mss" if mss else "stub",
             frames_captured=self.frames_captured,
             last_error=self.last_error,
+            focus=self.get_focus(),
         )
+
+    def get_focus(self) -> dict:
+        with self._focus_lock:
+            return {
+                "mode": self.focus_mode,
+                "monitor_index": self.monitor_index,
+                "ratio": self.zone_ratio,
+                "custom_region": self.custom_region,
+            }
+
+    def set_focus_full(self, monitor_index: int = 1) -> dict:
+        with self._focus_lock:
+            self.focus_mode = "full"
+            self.monitor_index = max(1, monitor_index)
+            self.custom_region = None
+            return self.get_focus()
+
+    def set_focus_center(self, ratio: float = 0.6, monitor_index: int = 1) -> dict:
+        with self._focus_lock:
+            self.focus_mode = "center"
+            self.zone_ratio = max(0.1, min(ratio, 1.0))
+            self.monitor_index = max(1, monitor_index)
+            self.custom_region = None
+            return self.get_focus()
+
+    def set_focus_custom(
+        self,
+        left: int,
+        top: int,
+        width: int,
+        height: int,
+        monitor_index: int = 1,
+    ) -> dict:
+        region = {
+            "left": max(0, int(left)),
+            "top": max(0, int(top)),
+            "width": max(1, int(width)),
+            "height": max(1, int(height)),
+        }
+        with self._focus_lock:
+            self.focus_mode = "custom"
+            self.monitor_index = max(1, monitor_index)
+            self.custom_region = region
+            return self.get_focus()
+
+    def monitors(self) -> list[dict]:
+        if not mss:
+            return []
+        try:
+            with mss() as screen:
+                result = []
+                for idx, monitor in enumerate(screen.monitors):
+                    if idx == 0:
+                        continue
+                    result.append(
+                        {
+                            "index": idx,
+                            "left": monitor["left"],
+                            "top": monitor["top"],
+                            "width": monitor["width"],
+                            "height": monitor["height"],
+                        }
+                    )
+                return result
+        except Exception:
+            return []
 
     def _capture_zone(self, monitor: dict) -> dict:
         width = int(monitor["width"] * self.zone_ratio)
@@ -74,6 +146,38 @@ class ScreenCaptureService:
             "width": width,
             "height": height,
         }
+
+    def _selected_monitor(self, monitors: list[dict], requested_index: int) -> dict:
+        if requested_index < len(monitors):
+            return monitors[requested_index]
+        return monitors[1]
+
+    def _effective_region(self, monitor: dict) -> dict:
+        with self._focus_lock:
+            mode = self.focus_mode
+            custom = self.custom_region.copy() if self.custom_region else None
+
+        if mode == "full":
+            return {
+                "left": monitor["left"],
+                "top": monitor["top"],
+                "width": monitor["width"],
+                "height": monitor["height"],
+            }
+
+        if mode == "custom" and custom:
+            left = monitor["left"] + custom["left"]
+            top = monitor["top"] + custom["top"]
+            max_width = max(1, monitor["width"] - custom["left"])
+            max_height = max(1, monitor["height"] - custom["top"])
+            return {
+                "left": left,
+                "top": top,
+                "width": min(custom["width"], max_width),
+                "height": min(custom["height"], max_height),
+            }
+
+        return self._capture_zone(monitor)
 
     def _run(self) -> None:
         if not mss:
@@ -88,10 +192,12 @@ class ScreenCaptureService:
 
         try:
             with mss() as screen:
-                monitor = screen.monitors[1]
-                region = self._capture_zone(monitor)
-
                 while not self._stop_event.is_set():
+                    with self._focus_lock:
+                        monitor_index = self.monitor_index
+
+                    monitor = self._selected_monitor(screen.monitors, monitor_index)
+                    region = self._effective_region(monitor)
                     shot = screen.grab(region)
                     self.event_queue.put(
                         ScreenFrameEvent(

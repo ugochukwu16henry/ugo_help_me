@@ -48,9 +48,41 @@ class IngestionManager:
                 "backend": screen.backend,
                 "frames_captured": screen.frames_captured,
                 "last_error": screen.last_error,
+                "focus": screen.focus,
                 "queue_size": self.screen_events.qsize(),
             },
         }
+
+    def set_screen_focus(self, payload: dict) -> dict:
+        mode = (payload.get("mode") or "").lower()
+        monitor_index = int(payload.get("monitor_index", 1))
+
+        if mode == "full":
+            return self.screen_service.set_focus_full(monitor_index=monitor_index)
+
+        if mode == "center":
+            ratio = float(payload.get("ratio", settings.capture_zone_ratio))
+            return self.screen_service.set_focus_center(
+                ratio=ratio,
+                monitor_index=monitor_index,
+            )
+
+        if mode == "custom":
+            return self.screen_service.set_focus_custom(
+                left=int(payload.get("left", 0)),
+                top=int(payload.get("top", 0)),
+                width=int(payload.get("width", 1)),
+                height=int(payload.get("height", 1)),
+                monitor_index=monitor_index,
+            )
+
+        raise ValueError("mode must be one of: full, center, custom")
+
+    def get_screen_focus(self) -> dict:
+        return self.screen_service.get_focus()
+
+    def list_monitors(self) -> list[dict]:
+        return self.screen_service.monitors()
 
 
 ingestion_manager = IngestionManager()

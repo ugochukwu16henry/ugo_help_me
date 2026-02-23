@@ -1,8 +1,14 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import HTTPException
 
 from app.brain.orchestrator import brain
 from app.ingestion.manager import ingestion_manager
-from app.models import BuildIndexResponse, QueryRequest, TranscriptSegmentRequest
+from app.models import (
+    BuildIndexResponse,
+    QueryRequest,
+    ScreenFocusRequest,
+    TranscriptSegmentRequest,
+)
 from app.rag.service import rag_service
 from app.transport.overlay_hub import overlay_hub
 
@@ -68,6 +74,25 @@ async def ingestion_start():
 async def ingestion_stop():
     ingestion_manager.stop()
     return {"stopped": True, "status": ingestion_manager.status()}
+
+
+@app.get("/ingestion/screen/focus")
+async def get_screen_focus():
+    return ingestion_manager.get_screen_focus()
+
+
+@app.post("/ingestion/screen/focus")
+async def set_screen_focus(payload: ScreenFocusRequest):
+    try:
+        focus = ingestion_manager.set_screen_focus(payload.model_dump())
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"focus": focus}
+
+
+@app.get("/ingestion/screen/monitors")
+async def list_screen_monitors():
+    return {"monitors": ingestion_manager.list_monitors()}
 
 
 @app.websocket("/ws/overlay")
