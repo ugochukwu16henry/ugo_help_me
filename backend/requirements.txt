@@ -12,3 +12,4 @@ mss>=10.0.0
 pyaudiowpatch>=0.2.12.7
 faster-whisper>=1.1.1
 python-multipart>=0.0.20
+rapidocr-onnxruntime>=1.3.23

@@ -29,6 +29,9 @@ class Settings(BaseModel):
     transcription_compute_type: str = "int8"
     transcription_min_seconds: float = 1.6
     vad_energy_threshold: int = 450
+    enable_screen_ocr: bool = True
+    screen_ocr_interval_ms: int = 1200
+    screen_ocr_min_chars: int = 12
 
 
 settings = Settings()
