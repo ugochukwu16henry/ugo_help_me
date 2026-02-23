@@ -11,7 +11,7 @@ app = FastAPI(title="UGO Assist Backend")
 
 @app.on_event("startup")
 async def startup_event():
-    ingestion_manager.start()
+    return None
 
 
 @app.on_event("shutdown")

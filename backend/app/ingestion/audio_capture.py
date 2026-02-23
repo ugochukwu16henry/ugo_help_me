@@ -59,6 +59,10 @@ class AudioCaptureService:
 
     def stop(self) -> None:
         self._stop_event.set()
+        for worker in self._threads:
+            if worker.is_alive():
+                worker.join(timeout=2.0)
+        self._threads = []
 
     def status(self) -> AudioCaptureStatus:
         return AudioCaptureStatus(

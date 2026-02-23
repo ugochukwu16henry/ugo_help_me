@@ -3,7 +3,7 @@ from typing import List
 
 import chromadb
 from chromadb.api.models.Collection import Collection
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from app.config import settings
 from app.rag.loader import load_documents
@@ -38,6 +38,9 @@ class RAGService:
         return len(chunks)
 
     def retrieve(self, query: str, top_k: int | None = None) -> List[str]:
+        if self.collection.count() == 0:
+            return []
+
         limit = top_k or settings.top_k
         result = self.collection.query(query_texts=[query], n_results=limit)
         docs = result.get("documents", [])
