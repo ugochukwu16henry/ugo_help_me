@@ -21,3 +21,7 @@ class ScreenFocusRequest(BaseModel):
     top: int | None = None
     width: int | None = None
     height: int | None = None
+
+
+class DocumentSelectionRequest(BaseModel):
+    selected_docs: list[str]

@@ -96,6 +96,48 @@
         opacity: 0.75;
         margin-right: 4px;
       }
+
+      .doc-select {
+        margin-top: 8px;
+        font-size: 12px;
+      }
+
+      .doc-list {
+        margin-top: 6px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        max-height: 72px;
+        overflow: auto;
+      }
+
+      .doc-item {
+        pointer-events: auto;
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+        padding: 2px 6px;
+      }
+
+      .doc-actions {
+        margin-top: 6px;
+        display: flex;
+        gap: 6px;
+      }
+
+      .doc-actions button {
+        pointer-events: auto;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        border-radius: 6px;
+        padding: 4px 6px;
+        font-size: 12px;
+        cursor: pointer;
+      }
     </style>
   </head>
   <body>
@@ -141,6 +183,14 @@
         </label>
 
         <button id="applyFocusBtn">Apply Focus</button>
+      </div>
+      <div class="doc-select">
+        <div><span class="caption">RAG docs:</span><span id="docSummary">Loading...</span></div>
+        <div id="docList" class="doc-list"></div>
+        <div class="doc-actions">
+          <button id="refreshDocsBtn">Refresh Docs</button>
+          <button id="applyDocsBtn">Apply Selected Docs</button>
+        </div>
       </div>
       <div id="answer" class="answer">Waiting for generated response...</div>
       <div id="transcript" class="transcript"><span class="caption">Heard:</span><span id="transcriptText">(no transcript yet)</span></div>

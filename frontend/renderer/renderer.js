@@ -18,6 +18,10 @@ const topInput = document.getElementById('topInput');
 const widthInput = document.getElementById('widthInput');
 const heightInput = document.getElementById('heightInput');
 const applyFocusBtn = document.getElementById('applyFocusBtn');
+const docSummary = document.getElementById('docSummary');
+const docList = document.getElementById('docList');
+const refreshDocsBtn = document.getElementById('refreshDocsBtn');
+const applyDocsBtn = document.getElementById('applyDocsBtn');
 
 const wsUrl = 'ws://127.0.0.1:8765/ws/overlay';
 const apiBase = 'http://127.0.0.1:8765';
@@ -82,6 +86,46 @@ function monitorLabel(monitor) {
   const left = monitor.left ?? 0;
   const top = monitor.top ?? 0;
   return `#${index} ${width}x${height} @ (${left},${top})`;
+}
+
+function renderDocList(available, selected) {
+  const selectedSet = new Set(selected || []);
+  docList.innerHTML = '';
+
+  if (!available || available.length === 0) {
+    docSummary.textContent = 'No documents found in backend/data/my_docs';
+    return;
+  }
+
+  docSummary.textContent = `${selectedSet.size || available.length}/${available.length} selected`;
+
+  for (const name of available) {
+    const label = document.createElement('label');
+    label.className = 'doc-item';
+
+    const checkbox = document.createElement('input');
+    checkbox.type = 'checkbox';
+    checkbox.value = name;
+    checkbox.checked = selectedSet.size === 0 ? true : selectedSet.has(name);
+
+    const text = document.createElement('span');
+    text.textContent = name;
+
+    label.appendChild(checkbox);
+    label.appendChild(text);
+    docList.appendChild(label);
+  }
+}
+
+async function refreshDocuments() {
+  const data = await apiRequest('/rag/documents');
+  const available = Array.isArray(data.available) ? data.available : [];
+  const selected = Array.isArray(data.selected) ? data.selected : [];
+  renderDocList(available, selected);
+}
+
+function getSelectedDocNames() {
+  return Array.from(docList.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
 }
 
 async function populateMonitors(selectedIndex = 1) {
@@ -199,9 +243,35 @@ async function bootstrapControls() {
       widthInput.value = String(focus.custom_region.width);
       heightInput.value = String(focus.custom_region.height);
     }
+
+    await refreshDocuments();
   } catch {
     statusEl.textContent = 'Backend control API unavailable';
   }
+
+  refreshDocsBtn.addEventListener('click', async () => {
+    try {
+      await refreshDocuments();
+      statusEl.textContent = 'Document list refreshed';
+    } catch {
+      statusEl.textContent = 'Failed to refresh documents';
+    }
+  });
+
+  applyDocsBtn.addEventListener('click', async () => {
+    try {
+      const selectedDocs = getSelectedDocNames();
+      const result = await apiRequest('/rag/documents/select', 'POST', {
+        selected_docs: selectedDocs
+      });
+      const available = Array.isArray(result.available) ? result.available : [];
+      const selected = Array.isArray(result.selected) ? result.selected : [];
+      renderDocList(available, selected);
+      statusEl.textContent = `Applied docs: ${selected.length}`;
+    } catch {
+      statusEl.textContent = 'Failed to apply document selection';
+    }
+  });
 }
 
 function connect() {

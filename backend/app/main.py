@@ -5,6 +5,7 @@ from app.brain.orchestrator import brain
 from app.brain.runtime import brain_runtime
 from app.ingestion.manager import ingestion_manager
 from app.models import (
+    DocumentSelectionRequest,
     BuildIndexResponse,
     QueryRequest,
     ScreenFocusRequest,
@@ -40,6 +41,23 @@ async def health():
 async def build_rag_index():
     count = rag_service.build_index()
     return BuildIndexResponse(indexed_chunks=count)
+
+
+@app.get("/rag/documents")
+async def rag_documents() -> dict:
+    return {
+        "available": rag_service.list_available_docs(),
+        "selected": rag_service.get_selected_docs(),
+    }
+
+
+@app.post("/rag/documents/select")
+async def rag_documents_select(payload: DocumentSelectionRequest) -> dict:
+    selected = rag_service.set_selected_docs(payload.selected_docs)
+    return {
+        "selected": selected,
+        "available": rag_service.list_available_docs(),
+    }
 
 
 @app.post("/brain/ask")
