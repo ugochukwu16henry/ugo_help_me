@@ -9,6 +9,7 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const questionInput = document.getElementById('questionInput');
 const askBtn = document.getElementById('askBtn');
+const clearAnswerBtn = document.getElementById('clearAnswerBtn');
 const uploadInput = document.getElementById('uploadInput');
 const uploadBtn = document.getElementById('uploadBtn');
 const buildRagBtn = document.getElementById('buildRagBtn');
@@ -222,6 +223,11 @@ async function bootstrapControls() {
     } catch {
       statusEl.textContent = 'Failed to generate answer';
     }
+  });
+
+  clearAnswerBtn.addEventListener('click', () => {
+    answerEl.textContent = '';
+    statusEl.textContent = 'Answer cleared';
   });
 
   questionInput.addEventListener('keydown', async (event) => {
