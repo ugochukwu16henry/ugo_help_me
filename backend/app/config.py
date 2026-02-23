@@ -19,6 +19,7 @@ class Settings(BaseModel):
     audio_chunk_ms: int = 100
     audio_sample_rate: int = 16000
     audio_channels: int = 1
+    enable_native_audio_capture: bool = False
 
 
 settings = Settings()

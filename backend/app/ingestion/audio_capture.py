@@ -33,11 +33,13 @@ class AudioCaptureService:
         chunk_ms: int = 100,
         sample_rate: int = 16000,
         channels: int = 1,
+        enable_native_capture: bool = False,
     ) -> None:
         self.event_queue = event_queue
         self.chunk_ms = chunk_ms
         self.sample_rate = sample_rate
         self.channels = channels
+        self.enable_native_capture = enable_native_capture
         self._stop_event = threading.Event()
         self._threads: list[threading.Thread] = []
         self.mic_chunks = 0
@@ -74,7 +76,7 @@ class AudioCaptureService:
         )
 
     def _run_source(self, source: str) -> None:
-        if pyaudio is None:
+        if pyaudio is None or not self.enable_native_capture:
             self._run_stub_source(source)
             return
 
@@ -114,6 +116,8 @@ class AudioCaptureService:
     def _run_stub_source(self, source: str) -> None:
         if pyaudio is None:
             self.last_error = "pyaudiowpatch unavailable; running audio capture in stub mode"
+        elif not self.enable_native_capture:
+            self.last_error = "native audio capture disabled by config; running in stub mode"
         while not self._stop_event.is_set():
             self.event_queue.put(AudioEvent(ts=time.time(), source=source, payload=b""))
             if source == "mic":

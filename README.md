@@ -41,6 +41,7 @@ The Electron renderer expects backend WebSocket endpoint:
 - Stage 4 foundation: Trigger logic API (`?` and silence tick path) + WebSocket push to overlay.
 - Stage 2 completed: real ingestion services for center-zone screen capture (`mss`) and dual audio source capture (mic + WASAPI loopback via `pyaudiowpatch`) with start/stop/status controls.
 - Ingestion starts manually through API (`/ingestion/start`) to keep startup stable across environments.
+- Native audio capture is disabled by default for stability. Set `enable_native_audio_capture=true` in config when you want real WASAPI mic/loopback capture.
 
 ## API smoke checks
 

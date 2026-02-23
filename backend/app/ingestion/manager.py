@@ -15,6 +15,7 @@ class IngestionManager:
             chunk_ms=settings.audio_chunk_ms,
             sample_rate=settings.audio_sample_rate,
             channels=settings.audio_channels,
+            enable_native_capture=settings.enable_native_audio_capture,
         )
         self.screen_service = ScreenCaptureService(
             event_queue=self.screen_events,
