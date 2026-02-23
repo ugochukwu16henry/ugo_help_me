@@ -6,6 +6,9 @@ const toggleInteractionBtn = document.getElementById('toggleInteractionBtn');
 const toggleVisibilityBtn = document.getElementById('toggleVisibilityBtn');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
+const questionInput = document.getElementById('questionInput');
+const askBtn = document.getElementById('askBtn');
+const buildRagBtn = document.getElementById('buildRagBtn');
 const modeSelect = document.getElementById('modeSelect');
 const monitorSelect = document.getElementById('monitorSelect');
 const ratioInput = document.getElementById('ratioInput');
@@ -135,6 +138,41 @@ async function bootstrapControls() {
   stopBtn.addEventListener('click', async () => {
     await apiRequest('/ingestion/stop', 'POST');
     statusEl.textContent = 'Ingestion stopped';
+  });
+
+  askBtn.addEventListener('click', async () => {
+    const question = (questionInput.value || '').trim();
+    if (!question) {
+      statusEl.textContent = 'Enter a question first';
+      return;
+    }
+
+    try {
+      const result = await apiRequest('/brain/ask', 'POST', { question });
+      if (result.answer) {
+        answerEl.textContent = result.answer;
+      }
+      statusEl.textContent = 'Answer generated';
+    } catch {
+      statusEl.textContent = 'Failed to generate answer';
+    }
+  });
+
+  questionInput.addEventListener('keydown', async (event) => {
+    if (event.key !== 'Enter') {
+      return;
+    }
+    event.preventDefault();
+    askBtn.click();
+  });
+
+  buildRagBtn.addEventListener('click', async () => {
+    try {
+      const result = await apiRequest('/rag/build', 'POST');
+      statusEl.textContent = `RAG built: ${result.indexed_chunks} chunks`;
+    } catch {
+      statusEl.textContent = 'RAG build failed';
+    }
   });
 
   applyFocusBtn.addEventListener('click', async () => {

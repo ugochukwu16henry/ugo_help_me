@@ -88,6 +88,8 @@ curl -X POST http://127.0.0.1:8765/ingestion/screen/focus -H "Content-Type: appl
 - Use tray icon menu to show/hide overlay, lock/unlock controls, or quit.
 - Controls available in overlay:
   - start/stop ingestion
+  - build RAG index directly
+  - type a question and click `Ask` (or press Enter) for immediate generation
   - set focus mode (`full`, `center`, `custom`)
   - apply custom region values
 - Press `Ctrl+Shift+I` again (or click `Lock`) to return to click-through mode.
