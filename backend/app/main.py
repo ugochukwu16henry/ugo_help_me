@@ -157,6 +157,18 @@ async def screen_ocr_status():
     return screen_ocr_service.status()
 
 
+@app.post("/screen/ocr/ask")
+async def screen_ocr_ask() -> dict:
+    text = (screen_ocr_service.latest_text() or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="No OCR text available yet")
+
+    question = text if text.endswith("?") else f"{text} ?"
+    answer = brain.answer_question(question)
+    await overlay_hub.broadcast({"type": "answer", "message": answer})
+    return {"question": question, "answer": answer}
+
+
 @app.post("/transcription/mock")
 async def transcription_mock(payload: TranscriptSegmentRequest):
     await transcription_service.submit_mock_text(payload.text)

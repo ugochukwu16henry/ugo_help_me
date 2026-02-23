@@ -29,6 +29,7 @@ const docList = document.getElementById('docList');
 const refreshDocsBtn = document.getElementById('refreshDocsBtn');
 const applyDocsBtn = document.getElementById('applyDocsBtn');
 const deleteDocsBtn = document.getElementById('deleteDocsBtn');
+const askFromOcrBtn = document.getElementById('askFromOcrBtn');
 
 const wsUrl = 'ws://127.0.0.1:8765/ws/overlay';
 const apiBase = 'http://127.0.0.1:8765';
@@ -425,6 +426,18 @@ async function bootstrapControls() {
       statusEl.textContent = `Deleted ${deleted.length} document(s)`;
     } catch (error) {
       statusWithError('Failed to delete documents', error);
+    }
+  });
+
+  askFromOcrBtn.addEventListener('click', async () => {
+    try {
+      const result = await apiRequest('/screen/ocr/ask', 'POST');
+      if (result.answer) {
+        answerEl.textContent = result.answer;
+      }
+      statusEl.textContent = 'Generated answer from OCR';
+    } catch (error) {
+      statusWithError('Failed to answer from OCR', error);
     }
   });
 }
