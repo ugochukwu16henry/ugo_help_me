@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>UGO Ghost Overlay</title>
+    <style>
+      :root {
+        color-scheme: dark;
+      }
+
+      html,
+      body {
+        margin: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        font-family: Arial, sans-serif;
+        color: #fff;
+        background: transparent;
+      }
+
+      .overlay {
+        margin: 14px;
+        padding: 12px 14px;
+        border-radius: 10px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .status {
+        font-size: 11px;
+        opacity: 0.8;
+        margin-bottom: 8px;
+      }
+
+      .answer {
+        font-size: 16px;
+        line-height: 1.35;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="overlay">
+      <div id="status" class="status">Connecting to backend...</div>
+      <div id="answer" class="answer">Waiting for generated response...</div>
+    </div>
+
+    <script src="renderer.js"></script>
+  </body>
+</html>

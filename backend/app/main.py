@@ -1,0 +1,53 @@
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+
+from app.brain.orchestrator import brain
+from app.models import BuildIndexResponse, QueryRequest, TranscriptSegmentRequest
+from app.rag.service import rag_service
+from app.transport.overlay_hub import overlay_hub
+
+app = FastAPI(title="UGO Assist Backend")
+
+
+@app.get("/health")
+async def health():
+    return {"ok": True}
+
+
+@app.post("/rag/build", response_model=BuildIndexResponse)
+async def build_rag_index():
+    count = rag_service.build_index()
+    return BuildIndexResponse(indexed_chunks=count)
+
+
+@app.post("/brain/ask")
+async def ask_brain(payload: QueryRequest):
+    answer = brain.answer_question(payload.question)
+    await overlay_hub.broadcast({"type": "answer", "message": answer})
+    return {"answer": answer}
+
+
+@app.post("/brain/ingest")
+async def ingest_segment(payload: TranscriptSegmentRequest):
+    maybe_answer = brain.ingest_transcript_segment(payload.text)
+    if maybe_answer:
+        await overlay_hub.broadcast({"type": "answer", "message": maybe_answer})
+    return {"triggered": bool(maybe_answer)}
+
+
+@app.post("/brain/silence-tick")
+async def silence_tick():
+    maybe_answer = brain.on_silence_tick()
+    if maybe_answer:
+        await overlay_hub.broadcast({"type": "answer", "message": maybe_answer})
+    return {"triggered": bool(maybe_answer)}
+
+
+@app.websocket("/ws/overlay")
+async def ws_overlay(websocket: WebSocket):
+    await overlay_hub.connect(websocket)
+    await overlay_hub.broadcast({"type": "status", "message": "Backend connected"})
+    try:
+        while True:
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        await overlay_hub.disconnect(websocket)
