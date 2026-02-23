@@ -2,6 +2,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi import HTTPException
 
 from app.brain.orchestrator import brain
+from app.brain.runtime import brain_runtime
 from app.ingestion.manager import ingestion_manager
 from app.models import (
     BuildIndexResponse,
@@ -17,11 +18,12 @@ app = FastAPI(title="UGO Assist Backend")
 
 @app.on_event("startup")
 async def startup_event():
-    return None
+    await brain_runtime.start()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    await brain_runtime.stop()
     ingestion_manager.stop()
 
 
@@ -45,10 +47,8 @@ async def ask_brain(payload: QueryRequest):
 
 @app.post("/brain/ingest")
 async def ingest_segment(payload: TranscriptSegmentRequest):
-    maybe_answer = brain.ingest_transcript_segment(payload.text)
-    if maybe_answer:
-        await overlay_hub.broadcast({"type": "answer", "message": maybe_answer})
-    return {"triggered": bool(maybe_answer)}
+    await brain_runtime.submit_transcript(payload.text)
+    return {"queued": True, "runtime": brain_runtime.status()}
 
 
 @app.post("/brain/silence-tick")
@@ -57,6 +57,11 @@ async def silence_tick():
     if maybe_answer:
         await overlay_hub.broadcast({"type": "answer", "message": maybe_answer})
     return {"triggered": bool(maybe_answer)}
+
+
+@app.get("/brain/runtime/status")
+async def brain_runtime_status():
+    return brain_runtime.status()
 
 
 @app.get("/ingestion/status")
