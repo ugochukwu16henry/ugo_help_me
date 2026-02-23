@@ -14,6 +14,11 @@ class Settings(BaseModel):
     chunk_overlap: int = 70
     top_k: int = 4
     silence_ms_trigger: int = 1500
+    screen_interval_ms: int = 120
+    capture_zone_ratio: float = 0.6
+    audio_chunk_ms: int = 100
+    audio_sample_rate: int = 16000
+    audio_channels: int = 1
 
 
 settings = Settings()

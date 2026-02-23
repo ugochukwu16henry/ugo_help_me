@@ -1,11 +1,22 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from app.brain.orchestrator import brain
+from app.ingestion.manager import ingestion_manager
 from app.models import BuildIndexResponse, QueryRequest, TranscriptSegmentRequest
 from app.rag.service import rag_service
 from app.transport.overlay_hub import overlay_hub
 
 app = FastAPI(title="UGO Assist Backend")
+
+
+@app.on_event("startup")
+async def startup_event():
+    ingestion_manager.start()
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    ingestion_manager.stop()
 
 
 @app.get("/health")
@@ -40,6 +51,23 @@ async def silence_tick():
     if maybe_answer:
         await overlay_hub.broadcast({"type": "answer", "message": maybe_answer})
     return {"triggered": bool(maybe_answer)}
+
+
+@app.get("/ingestion/status")
+async def ingestion_status():
+    return ingestion_manager.status()
+
+
+@app.post("/ingestion/start")
+async def ingestion_start():
+    ingestion_manager.start()
+    return {"started": True, "status": ingestion_manager.status()}
+
+
+@app.post("/ingestion/stop")
+async def ingestion_stop():
+    ingestion_manager.stop()
+    return {"stopped": True, "status": ingestion_manager.status()}
 
 
 @app.websocket("/ws/overlay")
