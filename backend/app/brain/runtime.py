@@ -50,13 +50,13 @@ class BrainRuntime:
         while self._running:
             try:
                 segment = await asyncio.wait_for(self._transcript_queue.get(), timeout=0.25)
-                answer = brain.ingest_transcript_segment(segment)
+                answer = await asyncio.to_thread(brain.ingest_transcript_segment, segment)
                 if answer:
                     await overlay_hub.broadcast({"type": "answer", "message": answer})
             except asyncio.TimeoutError:
                 pass
 
-            answer = brain.on_silence_tick()
+            answer = await asyncio.to_thread(brain.on_silence_tick)
             if answer:
                 await overlay_hub.broadcast({"type": "answer", "message": answer})
 

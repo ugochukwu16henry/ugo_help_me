@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -129,7 +130,7 @@ async def rag_documents_delete(payload: DocumentSelectionRequest) -> dict:
 
 @app.post("/brain/ask")
 async def ask_brain(payload: QueryRequest):
-    answer = brain.answer_question(payload.question)
+    answer = await asyncio.to_thread(brain.answer_question, payload.question)
     await overlay_hub.broadcast({"type": "answer", "message": answer})
     return {"answer": answer}
 
@@ -142,7 +143,7 @@ async def ingest_segment(payload: TranscriptSegmentRequest):
 
 @app.post("/brain/silence-tick")
 async def silence_tick():
-    maybe_answer = brain.on_silence_tick()
+    maybe_answer = await asyncio.to_thread(brain.on_silence_tick)
     if maybe_answer:
         await overlay_hub.broadcast({"type": "answer", "message": maybe_answer})
     return {"triggered": bool(maybe_answer)}
@@ -170,7 +171,7 @@ async def screen_ocr_ask() -> dict:
         raise HTTPException(status_code=400, detail="No OCR text available yet")
 
     question = text if text.endswith("?") else f"{text} ?"
-    answer = brain.answer_question(question)
+    answer = await asyncio.to_thread(brain.answer_question, question)
     await overlay_hub.broadcast({"type": "answer", "message": answer})
     return {"question": question, "answer": answer}
 
