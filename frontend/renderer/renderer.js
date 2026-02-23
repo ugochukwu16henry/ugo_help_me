@@ -3,10 +3,11 @@ const answerEl = document.getElementById('answer');
 const hintEl = document.getElementById('hint');
 
 const toggleInteractionBtn = document.getElementById('toggleInteractionBtn');
+const toggleVisibilityBtn = document.getElementById('toggleVisibilityBtn');
 const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const modeSelect = document.getElementById('modeSelect');
-const monitorInput = document.getElementById('monitorInput');
+const monitorSelect = document.getElementById('monitorSelect');
 const ratioInput = document.getElementById('ratioInput');
 const leftInput = document.getElementById('leftInput');
 const topInput = document.getElementById('topInput');
@@ -42,13 +43,13 @@ function renderInteractionMode(enabled) {
   document.body.classList.toggle('interactive', enabled);
   toggleInteractionBtn.textContent = enabled ? 'Lock' : 'Unlock';
   hintEl.textContent = enabled
-    ? 'Controls unlocked. Click Lock when done.'
-    : 'Press Ctrl+Shift+I to unlock controls.';
+    ? 'Controls unlocked. Ctrl+Shift+H hide/show overlay.'
+    : 'Ctrl+Shift+H hide/show overlay • Ctrl+Shift+I unlock controls.';
 }
 
 async function applyFocusFromInputs() {
   const mode = modeSelect.value;
-  const monitor = Number(monitorInput.value || 1);
+  const monitor = Number(monitorSelect.value || 1);
 
   const payload = {
     mode,
@@ -70,6 +71,41 @@ async function applyFocusFromInputs() {
   statusEl.textContent = `Focus updated: ${result.focus.mode}`;
 }
 
+function monitorLabel(monitor) {
+  const index = monitor.index ?? 1;
+  const width = monitor.width ?? 0;
+  const height = monitor.height ?? 0;
+  const left = monitor.left ?? 0;
+  const top = monitor.top ?? 0;
+  return `#${index} ${width}x${height} @ (${left},${top})`;
+}
+
+async function populateMonitors(selectedIndex = 1) {
+  const data = await apiRequest('/ingestion/screen/monitors');
+  const monitors = Array.isArray(data.monitors) ? data.monitors : [];
+
+  monitorSelect.innerHTML = '';
+
+  if (monitors.length === 0) {
+    const fallback = document.createElement('option');
+    fallback.value = '1';
+    fallback.textContent = '#1 (default)';
+    monitorSelect.appendChild(fallback);
+    monitorSelect.value = '1';
+    return;
+  }
+
+  for (const monitor of monitors) {
+    const option = document.createElement('option');
+    option.value = String(monitor.index);
+    option.textContent = monitorLabel(monitor);
+    monitorSelect.appendChild(option);
+  }
+
+  const hasTarget = monitors.some((monitor) => monitor.index === selectedIndex);
+  monitorSelect.value = String(hasTarget ? selectedIndex : monitors[0].index);
+}
+
 async function bootstrapControls() {
   const initialMode = await window.overlayAPI.getInteractionMode();
   renderInteractionMode(Boolean(initialMode));
@@ -81,6 +117,14 @@ async function bootstrapControls() {
   toggleInteractionBtn.addEventListener('click', async () => {
     const current = await window.overlayAPI.getInteractionMode();
     await window.overlayAPI.setInteractionMode(!current);
+  });
+
+  toggleVisibilityBtn.addEventListener('click', async () => {
+    try {
+      await window.overlayAPI.toggleVisibility();
+    } catch {
+      statusEl.textContent = 'Failed to toggle overlay visibility';
+    }
   });
 
   startBtn.addEventListener('click', async () => {
@@ -102,9 +146,11 @@ async function bootstrapControls() {
   });
 
   try {
+    await populateMonitors(1);
+
     const focus = await apiRequest('/ingestion/screen/focus');
     modeSelect.value = focus.mode || 'center';
-    monitorInput.value = String(focus.monitor_index || 1);
+    await populateMonitors(Number(focus.monitor_index || 1));
     if (typeof focus.ratio === 'number') {
       ratioInput.value = String(focus.ratio);
     }

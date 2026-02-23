@@ -87,9 +87,10 @@
   <body>
     <div class="overlay">
       <div id="status" class="status">Connecting to backend...</div>
-      <div id="hint" class="hint">Press Ctrl+Shift+I to unlock controls.</div>
+      <div id="hint" class="hint">Ctrl+Shift+H hide/show overlay • Ctrl+Shift+I unlock controls.</div>
       <div class="controls">
         <button id="toggleInteractionBtn">Unlock</button>
+        <button id="toggleVisibilityBtn">Hide</button>
         <button id="startBtn">Start Ingestion</button>
         <button id="stopBtn">Stop Ingestion</button>
 
@@ -102,7 +103,7 @@
         </label>
 
         <label>Monitor
-          <input id="monitorInput" type="number" value="1" min="1" style="width:50px" />
+          <select id="monitorSelect" style="min-width:200px"></select>
         </label>
 
         <label>Ratio

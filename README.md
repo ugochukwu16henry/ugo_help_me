@@ -81,7 +81,10 @@ curl -X POST http://127.0.0.1:8765/ingestion/screen/focus -H "Content-Type: appl
 ## Overlay controls
 
 - The overlay remains click-through by default.
+- Press `Ctrl+Shift+H` to hide/show overlay instantly.
 - Press `Ctrl+Shift+I` to unlock interaction and use built-in controls.
+- Closing the window sends it to background (system tray) instead of fully exiting.
+- Use tray icon menu to show/hide overlay, lock/unlock controls, or quit.
 - Controls available in overlay:
   - start/stop ingestion
   - set focus mode (`full`, `center`, `custom`)

@@ -1,8 +1,14 @@
-const { app, BrowserWindow, globalShortcut, ipcMain } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage } = require('electron');
 const path = require('path');
 
 let mainWindow;
 let interactiveMode = false;
+let tray = null;
+let isQuitting = false;
+
+const runtimeDataPath = path.join(app.getPath('temp'), `ugo-overlay-runtime-${process.pid}`);
+app.setPath('userData', runtimeDataPath);
+app.setPath('sessionData', runtimeDataPath);
 
 function applyInteractionMode() {
   if (!mainWindow) {
@@ -16,6 +22,63 @@ function applyInteractionMode() {
 function toggleInteractionMode() {
   interactiveMode = !interactiveMode;
   applyInteractionMode();
+  refreshTrayMenu();
+}
+
+function toggleVisibility() {
+  if (!mainWindow) {
+    return;
+  }
+
+  if (mainWindow.isVisible()) {
+    mainWindow.hide();
+    refreshTrayMenu();
+    return;
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+  applyInteractionMode();
+  refreshTrayMenu();
+}
+
+function createTray() {
+  const icon = nativeImage.createFromDataURL(
+    'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAQAAAC1+jfqAAAAKElEQVR4AWNABf7//z8DGfAfxP8MDAwM/4fB8J+B4T8GBgaG/wxkAAAEAw0AbQ1R6QAAAABJRU5ErkJggg=='
+  );
+  tray = new Tray(icon);
+  tray.setToolTip('UGO Overlay');
+  tray.on('click', () => {
+    toggleVisibility();
+  });
+  refreshTrayMenu();
+}
+
+function refreshTrayMenu() {
+  if (!tray) {
+    return;
+  }
+
+  const visible = Boolean(mainWindow && mainWindow.isVisible());
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: visible ? 'Hide Overlay' : 'Show Overlay',
+      click: () => toggleVisibility()
+    },
+    {
+      label: interactiveMode ? 'Lock Controls' : 'Unlock Controls',
+      click: () => toggleInteractionMode()
+    },
+    { type: 'separator' },
+    {
+      label: 'Quit',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  ]);
+  tray.setContextMenu(contextMenu);
 }
 
 function createWindow() {
@@ -39,6 +102,18 @@ function createWindow() {
   applyInteractionMode();
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  mainWindow.on('close', (event) => {
+    if (isQuitting) {
+      return;
+    }
+    event.preventDefault();
+    mainWindow.hide();
+    refreshTrayMenu();
+  });
+
+  mainWindow.on('show', refreshTrayMenu);
+  mainWindow.on('hide', refreshTrayMenu);
 }
 
 app.whenReady().then(() => {
@@ -48,12 +123,20 @@ app.whenReady().then(() => {
     applyInteractionMode();
     return interactiveMode;
   });
+  ipcMain.handle('overlay:toggle-visibility', () => {
+    toggleVisibility();
+    return Boolean(mainWindow && mainWindow.isVisible());
+  });
 
   globalShortcut.register('CommandOrControl+Shift+I', () => {
     toggleInteractionMode();
   });
+  globalShortcut.register('CommandOrControl+Shift+H', () => {
+    toggleVisibility();
+  });
 
   createWindow();
+  createTray();
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -63,7 +146,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
+  if (isQuitting && process.platform !== 'darwin') {
     app.quit();
   }
 });
