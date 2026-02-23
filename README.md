@@ -43,6 +43,7 @@ The Electron renderer expects backend WebSocket endpoint:
 - Stage 2 completed: real ingestion services for center-zone screen capture (`mss`) and dual audio source capture (mic + WASAPI loopback via `pyaudiowpatch`) with start/stop/status controls.
 - Ingestion starts manually through API (`/ingestion/start`) to keep startup stable across environments.
 - Native audio capture is disabled by default for stability. Set `enable_native_audio_capture=true` in config when you want real WASAPI mic/loopback capture.
+- Automatic speech-driven generation uses transcription service (`faster-whisper`) and needs native audio capture enabled.
 
 ## API smoke checks
 
@@ -54,6 +55,8 @@ curl -X POST http://127.0.0.1:8765/rag/build
 curl -X POST http://127.0.0.1:8765/brain/ask -H "Content-Type: application/json" -d "{\"question\":\"What projects did I lead?\"}"
 curl -X POST http://127.0.0.1:8765/brain/ingest -H "Content-Type: application/json" -d "{\"text\":\"Can you summarize my biggest project?\"}"
 curl http://127.0.0.1:8765/brain/runtime/status
+curl http://127.0.0.1:8765/transcription/status
+curl -X POST http://127.0.0.1:8765/transcription/mock -H "Content-Type: application/json" -d "{\"text\":\"Can you explain my key project?\"}"
 curl http://127.0.0.1:8765/ingestion/status
 curl -X POST http://127.0.0.1:8765/ingestion/stop
 curl -X POST http://127.0.0.1:8765/ingestion/start
