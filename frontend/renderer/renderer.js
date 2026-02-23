@@ -21,6 +21,7 @@ const topInput = document.getElementById('topInput');
 const widthInput = document.getElementById('widthInput');
 const heightInput = document.getElementById('heightInput');
 const applyFocusBtn = document.getElementById('applyFocusBtn');
+const pickFocusBtn = document.getElementById('pickFocusBtn');
 const docSummary = document.getElementById('docSummary');
 const docList = document.getElementById('docList');
 const refreshDocsBtn = document.getElementById('refreshDocsBtn');
@@ -280,6 +281,29 @@ async function bootstrapControls() {
       await applyFocusFromInputs();
     } catch {
       statusEl.textContent = 'Failed to apply focus';
+    }
+  });
+
+  pickFocusBtn.addEventListener('click', async () => {
+    try {
+      statusEl.textContent = 'Select region on screen...';
+      const selected = await window.overlayAPI.pickFocusArea();
+      if (!selected) {
+        statusEl.textContent = 'Focus selection cancelled';
+        return;
+      }
+
+      modeSelect.value = 'custom';
+      monitorSelect.value = String(selected.monitorIndex || 1);
+      leftInput.value = String(Math.max(0, Number(selected.left || 0)));
+      topInput.value = String(Math.max(0, Number(selected.top || 0)));
+      widthInput.value = String(Math.max(1, Number(selected.width || 1)));
+      heightInput.value = String(Math.max(1, Number(selected.height || 1)));
+
+      await applyFocusFromInputs();
+      statusEl.textContent = 'Focus region selected and applied';
+    } catch {
+      statusEl.textContent = 'Failed to pick focus area';
     }
   });
 

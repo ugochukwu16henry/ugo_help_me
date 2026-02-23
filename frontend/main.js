@@ -1,7 +1,8 @@
-const { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage } = require('electron');
+const { app, BrowserWindow, globalShortcut, ipcMain, Menu, Tray, nativeImage, screen } = require('electron');
 const path = require('path');
 
 let mainWindow;
+let pickerWindow = null;
 let interactiveMode = false;
 let tray = null;
 let isQuitting = false;
@@ -127,6 +128,97 @@ function createWindow() {
   mainWindow.on('hide', refreshTrayMenu);
 }
 
+function allDisplaysBounds(displays) {
+  const left = Math.min(...displays.map((d) => d.bounds.x));
+  const top = Math.min(...displays.map((d) => d.bounds.y));
+  const right = Math.max(...displays.map((d) => d.bounds.x + d.bounds.width));
+  const bottom = Math.max(...displays.map((d) => d.bounds.y + d.bounds.height));
+  return {
+    x: left,
+    y: top,
+    width: right - left,
+    height: bottom - top
+  };
+}
+
+function displayIndex(displays, displayId) {
+  const index = displays.findIndex((display) => display.id === displayId);
+  return index >= 0 ? index + 1 : 1;
+}
+
+function openFocusPicker() {
+  return new Promise((resolve) => {
+    if (pickerWindow && !pickerWindow.isDestroyed()) {
+      pickerWindow.close();
+    }
+
+    const displays = screen.getAllDisplays();
+    const virtualBounds = allDisplaysBounds(displays);
+
+    pickerWindow = new BrowserWindow({
+      x: virtualBounds.x,
+      y: virtualBounds.y,
+      width: virtualBounds.width,
+      height: virtualBounds.height,
+      frame: false,
+      transparent: true,
+      alwaysOnTop: true,
+      skipTaskbar: true,
+      movable: false,
+      resizable: false,
+      fullscreenable: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'focusPickerPreload.js'),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+
+    pickerWindow.setAlwaysOnTop(true, 'screen-saver');
+    pickerWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+    pickerWindow.loadFile(path.join(__dirname, 'renderer', 'focus-picker.html'));
+
+    const closePicker = (result) => {
+      if (pickerWindow && !pickerWindow.isDestroyed()) {
+        pickerWindow.close();
+      }
+      pickerWindow = null;
+      resolve(result);
+    };
+
+    ipcMain.once('overlay:focus-picker-cancel', () => closePicker(null));
+    ipcMain.once('overlay:focus-picker-selected', (_event, payload) => {
+      const left = Number(payload?.left || 0);
+      const top = Number(payload?.top || 0);
+      const width = Number(payload?.width || 0);
+      const height = Number(payload?.height || 0);
+
+      if (width < 5 || height < 5) {
+        closePicker(null);
+        return;
+      }
+
+      const display = screen.getDisplayNearestPoint({ x: left + 1, y: top + 1 });
+      const monitorIndex = displayIndex(displays, display.id);
+      const relativeLeft = Math.max(0, left - display.bounds.x);
+      const relativeTop = Math.max(0, top - display.bounds.y);
+
+      closePicker({
+        monitorIndex,
+        left: relativeLeft,
+        top: relativeTop,
+        width: Math.min(width, display.bounds.width - relativeLeft),
+        height: Math.min(height, display.bounds.height - relativeTop)
+      });
+    });
+
+    pickerWindow.on('closed', () => {
+      pickerWindow = null;
+      resolve(null);
+    });
+  });
+}
+
 app.whenReady().then(() => {
   ipcMain.handle('overlay:get-interaction', () => interactiveMode);
   ipcMain.handle('overlay:set-interaction', (_event, enabled) => {
@@ -137,6 +229,19 @@ app.whenReady().then(() => {
   ipcMain.handle('overlay:toggle-visibility', () => {
     toggleVisibility();
     return Boolean(mainWindow && mainWindow.isVisible());
+  });
+  ipcMain.handle('overlay:pick-focus', async () => {
+    const wasVisible = Boolean(mainWindow && mainWindow.isVisible());
+    if (mainWindow && wasVisible) {
+      mainWindow.hide();
+    }
+    const result = await openFocusPicker();
+    if (mainWindow && wasVisible) {
+      mainWindow.show();
+      applyInteractionMode();
+      refreshTrayMenu();
+    }
+    return result;
   });
 
   globalShortcut.register('CommandOrControl+Shift+I', () => {
