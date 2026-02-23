@@ -115,8 +115,9 @@ class LLMService:
 
     def _generate_ollama(self, question: str, context: str) -> str:
         url = f"{settings.ollama_base_url.rstrip('/')}/api/generate"
+        model_name = self._resolve_ollama_model()
         payload = {
-            "model": settings.ollama_model,
+            "model": model_name,
             "prompt": self._build_prompt(question, context),
             "stream": False,
             "options": {"temperature": 0.2},
@@ -144,6 +145,40 @@ class LLMService:
 
         self._last_error = None
         return content
+
+    def _resolve_ollama_model(self) -> str:
+        desired = (settings.ollama_model or "").strip()
+        available = self._list_ollama_models()
+
+        if desired and desired in available:
+            return desired
+
+        if available:
+            return available[0]
+
+        return desired or "llama3.2:3b"
+
+    def _list_ollama_models(self) -> list[str]:
+        url = f"{settings.ollama_base_url.rstrip('/')}/api/tags"
+        request = urllib.request.Request(url=url, method="GET")
+        try:
+            with urllib.request.urlopen(request, timeout=3) as response:
+                body = response.read().decode("utf-8")
+        except Exception:
+            return []
+
+        try:
+            parsed = json.loads(body)
+        except Exception:
+            return []
+
+        models = parsed.get("models") or []
+        names: list[str] = []
+        for model in models:
+            name = str((model or {}).get("name") or "").strip()
+            if name:
+                names.append(name)
+        return names
 
     def _build_prompt(self, question: str, context: str) -> str:
         safe_question = (question or "").strip()
