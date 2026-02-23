@@ -82,6 +82,20 @@
         max-height: 120px;
         overflow: auto;
       }
+
+      .transcript {
+        margin-top: 8px;
+        font-size: 12px;
+        opacity: 0.9;
+        white-space: pre-wrap;
+        max-height: 60px;
+        overflow: auto;
+      }
+
+      .caption {
+        opacity: 0.75;
+        margin-right: 4px;
+      }
     </style>
   </head>
   <body>
@@ -129,6 +143,7 @@
         <button id="applyFocusBtn">Apply Focus</button>
       </div>
       <div id="answer" class="answer">Waiting for generated response...</div>
+      <div id="transcript" class="transcript"><span class="caption">Heard:</span><span id="transcriptText">(no transcript yet)</span></div>
     </div>
 
     <script src="renderer.js"></script>

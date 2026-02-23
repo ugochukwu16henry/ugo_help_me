@@ -15,7 +15,7 @@ from app.transcription.service import TranscriptionService
 from app.transport.overlay_hub import overlay_hub
 
 app = FastAPI(title="UGO Assist Backend")
-transcription_service = TranscriptionService(ingestion_manager, brain_runtime)
+transcription_service = TranscriptionService(ingestion_manager, brain_runtime, overlay_hub)
 
 
 @app.on_event("startup")

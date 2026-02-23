@@ -1,5 +1,6 @@
 const statusEl = document.getElementById('status');
 const answerEl = document.getElementById('answer');
+const transcriptTextEl = document.getElementById('transcriptText');
 const hintEl = document.getElementById('hint');
 
 const toggleInteractionBtn = document.getElementById('toggleInteractionBtn');
@@ -220,6 +221,11 @@ function connect() {
 
       if (payload.type === 'answer') {
         answerEl.textContent = payload.message;
+        return;
+      }
+
+      if (payload.type === 'transcript') {
+        transcriptTextEl.textContent = payload.message;
       }
     } catch {
       statusEl.textContent = 'Received malformed backend message';

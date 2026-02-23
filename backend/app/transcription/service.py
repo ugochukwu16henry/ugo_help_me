@@ -16,13 +16,15 @@ except Exception:
 
 
 class TranscriptionService:
-    def __init__(self, ingestion_manager, brain_runtime) -> None:
+    def __init__(self, ingestion_manager, brain_runtime, overlay_hub) -> None:
         self.ingestion_manager = ingestion_manager
         self.brain_runtime = brain_runtime
+        self.overlay_hub = overlay_hub
         self._task: asyncio.Task | None = None
         self._running = False
         self._model: Any = None
         self._last_error: str | None = None
+        self._last_transcript = ""
         self._segments_seen = 0
         self._segments_transcribed = 0
         self._buffer = bytearray()
@@ -51,7 +53,15 @@ class TranscriptionService:
         self._task = None
 
     async def submit_mock_text(self, text: str) -> None:
-        await self.brain_runtime.submit_transcript(text)
+        cleaned = (text or "").strip()
+        if not cleaned:
+            return
+
+        self._last_transcript = cleaned
+        await self.overlay_hub.broadcast(
+            {"type": "transcript", "message": cleaned, "source": "mock"}
+        )
+        await self.brain_runtime.submit_transcript(cleaned)
 
     def status(self) -> dict:
         return {
@@ -60,6 +70,7 @@ class TranscriptionService:
             "model_ready": self._model is not None,
             "segments_seen": self._segments_seen,
             "segments_transcribed": self._segments_transcribed,
+            "last_transcript": self._last_transcript,
             "last_error": self._last_error,
         }
 
@@ -107,7 +118,11 @@ class TranscriptionService:
                     self._buffer.clear()
                     text = await asyncio.to_thread(self._transcribe_bytes, chunk)
                     if text:
+                        self._last_transcript = text
                         self._segments_transcribed += 1
+                        await self.overlay_hub.broadcast(
+                            {"type": "transcript", "message": text, "source": "audio"}
+                        )
                         await self.brain_runtime.submit_transcript(text)
 
             if not consumed_any:
