@@ -3,12 +3,16 @@ from pathlib import Path
 from pydantic import BaseModel
 
 
+BASE_DIR = Path(__file__).resolve().parents[1]
+DATA_DIR = BASE_DIR / "data"
+
+
 class Settings(BaseModel):
     host: str = "127.0.0.1"
     port: int = 8765
     ws_path: str = "/ws/overlay"
-    docs_dir: Path = Path("data/my_docs")
-    chroma_path: Path = Path("data/chroma_db")
+    docs_dir: Path = DATA_DIR / "my_docs"
+    chroma_path: Path = DATA_DIR / "chroma_db"
     collection_name: str = "personal_memory"
     chunk_size: int = 700
     chunk_overlap: int = 70
