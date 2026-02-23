@@ -61,37 +61,64 @@ function statusWithError(prefix, error) {
   statusEl.textContent = `${prefix}: ${message}`;
 }
 
-async function apiRequest(path, method = 'GET', body = null) {
+async function apiRequest(path, method = 'GET', body = null, timeoutMs = 30000) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
   const options = {
     method,
     headers: {
       'Content-Type': 'application/json'
-    }
+    },
+    signal: controller.signal
   };
 
   if (body) {
     options.body = JSON.stringify(body);
   }
 
-  const response = await fetch(`${apiBase}${path}`, options);
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(parseErrorText(text, `Request failed (${response.status})`));
-  }
+  try {
+    const response = await fetch(`${apiBase}${path}`, options);
+    if (!response.ok) {
+      const text = await response.text();
+      throw new Error(parseErrorText(text, `Request failed (${response.status})`));
+    }
 
-  return response.json();
+    return response.json();
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Request timed out. Backend may be busy.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function uploadFiles(files) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 180000);
+
   const formData = new FormData();
   for (const file of files) {
     formData.append('files', file, file.name);
   }
 
-  const response = await fetch(`${apiBase}/rag/upload`, {
-    method: 'POST',
-    body: formData
-  });
+  let response;
+  try {
+    response = await fetch(`${apiBase}/rag/upload`, {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal
+    });
+  } catch (error) {
+    if (error?.name === 'AbortError') {
+      throw new Error('Upload timed out. Try smaller files or retry.');
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 
   if (!response.ok) {
     const text = await response.text();
@@ -101,12 +128,24 @@ async function uploadFiles(files) {
   return response.json();
 }
 
+async function runWithBusy(button, busyText, action) {
+  const originalText = button.textContent;
+  button.disabled = true;
+  button.textContent = busyText;
+  try {
+    return await action();
+  } finally {
+    button.disabled = false;
+    button.textContent = originalText;
+  }
+}
+
 function renderInteractionMode(enabled) {
   document.body.classList.toggle('interactive', enabled);
   toggleInteractionBtn.textContent = enabled ? 'Lock' : 'Unlock';
   hintEl.textContent = enabled
     ? 'Controls unlocked. Ctrl+Shift+H hide/show overlay.'
-    : 'Ctrl+Shift+H hide/show overlay • Ctrl+Shift+I unlock controls.';
+    : 'Overlay is click-through. Press Ctrl+Shift+I to unlock controls • Ctrl+Shift+H hide/show.';
 }
 
 async function applyFocusFromInputs() {
@@ -261,13 +300,17 @@ async function bootstrapControls() {
   });
 
   startBtn.addEventListener('click', async () => {
-    await apiRequest('/ingestion/start', 'POST');
-    statusEl.textContent = 'Ingestion started';
+    await runWithBusy(startBtn, 'Starting...', async () => {
+      await apiRequest('/ingestion/start', 'POST');
+      statusEl.textContent = 'Ingestion started';
+    });
   });
 
   stopBtn.addEventListener('click', async () => {
-    await apiRequest('/ingestion/stop', 'POST');
-    statusEl.textContent = 'Ingestion stopped';
+    await runWithBusy(stopBtn, 'Stopping...', async () => {
+      await apiRequest('/ingestion/stop', 'POST');
+      statusEl.textContent = 'Ingestion stopped';
+    });
   });
 
   askBtn.addEventListener('click', async () => {
@@ -277,15 +320,17 @@ async function bootstrapControls() {
       return;
     }
 
-    try {
-      const result = await apiRequest('/brain/ask', 'POST', { question });
-      if (result.answer) {
-        answerEl.textContent = result.answer;
+    await runWithBusy(askBtn, 'Asking...', async () => {
+      try {
+        const result = await apiRequest('/brain/ask', 'POST', { question }, 180000);
+        if (result.answer) {
+          answerEl.textContent = result.answer;
+        }
+        statusEl.textContent = 'Answer generated';
+      } catch (error) {
+        statusWithError('Failed to generate answer', error);
       }
-      statusEl.textContent = 'Answer generated';
-    } catch (error) {
-      statusWithError('Failed to generate answer', error);
-    }
+    });
   });
 
   clearAnswerBtn.addEventListener('click', () => {
@@ -302,21 +347,23 @@ async function bootstrapControls() {
   });
 
   buildRagBtn.addEventListener('click', async () => {
-    try {
-      const pendingFiles = Array.from(uploadInput.files || []);
-      if (pendingFiles.length > 0) {
-        const uploadResult = await uploadFiles(pendingFiles);
-        uploadInput.value = '';
-        const uploadedCount = Array.isArray(uploadResult.uploaded) ? uploadResult.uploaded.length : 0;
-        statusEl.textContent = `Uploaded ${uploadedCount} file(s), building RAG...`;
-      }
+    await runWithBusy(buildRagBtn, 'Building...', async () => {
+      try {
+        const pendingFiles = Array.from(uploadInput.files || []);
+        if (pendingFiles.length > 0) {
+          const uploadResult = await uploadFiles(pendingFiles);
+          uploadInput.value = '';
+          const uploadedCount = Array.isArray(uploadResult.uploaded) ? uploadResult.uploaded.length : 0;
+          statusEl.textContent = `Uploaded ${uploadedCount} file(s), building RAG...`;
+        }
 
-      const result = await apiRequest('/rag/build', 'POST');
-      statusEl.textContent = `RAG built: ${result.indexed_chunks} chunks`;
-      await refreshDocuments();
-    } catch (error) {
-      statusWithError('RAG build failed', error);
-    }
+        const result = await apiRequest('/rag/build', 'POST', null, 180000);
+        statusEl.textContent = `RAG built: ${result.indexed_chunks} chunks`;
+        await refreshDocuments();
+      } catch (error) {
+        statusWithError('RAG build failed', error);
+      }
+    });
   });
 
   uploadBtn.addEventListener('click', async () => {
@@ -326,47 +373,53 @@ async function bootstrapControls() {
       return;
     }
 
-    try {
-      const result = await uploadFiles(files);
-      uploadInput.value = '';
-      const uploaded = Array.isArray(result.uploaded) ? result.uploaded : [];
-      const rejected = Array.isArray(result.rejected) ? result.rejected : [];
-      await refreshDocuments();
-      statusEl.textContent = `Uploaded ${uploaded.length} file(s)${rejected.length ? `, rejected ${rejected.length}` : ''}`;
-    } catch (error) {
-      statusWithError('Upload failed', error);
-    }
+    await runWithBusy(uploadBtn, 'Uploading...', async () => {
+      try {
+        const result = await uploadFiles(files);
+        uploadInput.value = '';
+        const uploaded = Array.isArray(result.uploaded) ? result.uploaded : [];
+        const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+        await refreshDocuments();
+        statusEl.textContent = `Uploaded ${uploaded.length} file(s)${rejected.length ? `, rejected ${rejected.length}` : ''}`;
+      } catch (error) {
+        statusWithError('Upload failed', error);
+      }
+    });
   });
 
   applyFocusBtn.addEventListener('click', async () => {
-    try {
-      await applyFocusFromInputs();
-    } catch (error) {
-      statusWithError('Failed to apply focus', error);
-    }
+    await runWithBusy(applyFocusBtn, 'Applying...', async () => {
+      try {
+        await applyFocusFromInputs();
+      } catch (error) {
+        statusWithError('Failed to apply focus', error);
+      }
+    });
   });
 
   pickFocusBtn.addEventListener('click', async () => {
-    try {
-      statusEl.textContent = 'Select region on screen...';
-      const selected = await window.overlayAPI.pickFocusArea();
-      if (!selected) {
-        statusEl.textContent = 'Focus selection cancelled';
-        return;
+    await runWithBusy(pickFocusBtn, 'Picking...', async () => {
+      try {
+        statusEl.textContent = 'Select region on screen...';
+        const selected = await window.overlayAPI.pickFocusArea();
+        if (!selected) {
+          statusEl.textContent = 'Focus selection cancelled';
+          return;
+        }
+
+        modeSelect.value = 'custom';
+        monitorSelect.value = String(selected.monitorIndex || 1);
+        leftInput.value = String(Math.max(0, Number(selected.left || 0)));
+        topInput.value = String(Math.max(0, Number(selected.top || 0)));
+        widthInput.value = String(Math.max(1, Number(selected.width || 1)));
+        heightInput.value = String(Math.max(1, Number(selected.height || 1)));
+
+        await applyFocusFromInputs();
+        statusEl.textContent = 'Focus region selected and applied';
+      } catch (error) {
+        statusWithError('Failed to pick focus area', error);
       }
-
-      modeSelect.value = 'custom';
-      monitorSelect.value = String(selected.monitorIndex || 1);
-      leftInput.value = String(Math.max(0, Number(selected.left || 0)));
-      topInput.value = String(Math.max(0, Number(selected.top || 0)));
-      widthInput.value = String(Math.max(1, Number(selected.width || 1)));
-      heightInput.value = String(Math.max(1, Number(selected.height || 1)));
-
-      await applyFocusFromInputs();
-      statusEl.textContent = 'Focus region selected and applied';
-    } catch (error) {
-      statusWithError('Failed to pick focus area', error);
-    }
+    });
   });
 
   try {
@@ -401,62 +454,70 @@ async function bootstrapControls() {
   }, 3000);
 
   refreshDocsBtn.addEventListener('click', async () => {
-    try {
-      await refreshDocuments();
-      statusEl.textContent = 'Document list refreshed';
-    } catch (error) {
-      statusWithError('Failed to refresh documents', error);
-    }
+    await runWithBusy(refreshDocsBtn, 'Refreshing...', async () => {
+      try {
+        await refreshDocuments();
+        statusEl.textContent = 'Document list refreshed';
+      } catch (error) {
+        statusWithError('Failed to refresh documents', error);
+      }
+    });
   });
 
   applyDocsBtn.addEventListener('click', async () => {
-    try {
-      const selectedDocs = getSelectedDocNames();
-      const result = await apiRequest('/rag/documents/select', 'POST', {
-        selected_docs: selectedDocs
-      });
-      const available = Array.isArray(result.available) ? result.available : [];
-      const selected = Array.isArray(result.selected) ? result.selected : [];
-      renderDocList(available, selected);
-      statusEl.textContent = `Applied docs: ${selected.length}`;
-    } catch (error) {
-      statusWithError('Failed to apply document selection', error);
-    }
+    await runWithBusy(applyDocsBtn, 'Applying...', async () => {
+      try {
+        const selectedDocs = getSelectedDocNames();
+        const result = await apiRequest('/rag/documents/select', 'POST', {
+          selected_docs: selectedDocs
+        });
+        const available = Array.isArray(result.available) ? result.available : [];
+        const selected = Array.isArray(result.selected) ? result.selected : [];
+        renderDocList(available, selected);
+        statusEl.textContent = `Applied docs: ${selected.length}`;
+      } catch (error) {
+        statusWithError('Failed to apply document selection', error);
+      }
+    });
   });
 
   deleteDocsBtn.addEventListener('click', async () => {
-    try {
-      const selectedDocs = getSelectedDocNames();
-      if (selectedDocs.length === 0) {
-        statusEl.textContent = 'Select document(s) to delete';
-        return;
+    await runWithBusy(deleteDocsBtn, 'Deleting...', async () => {
+      try {
+        const selectedDocs = getSelectedDocNames();
+        if (selectedDocs.length === 0) {
+          statusEl.textContent = 'Select document(s) to delete';
+          return;
+        }
+
+        const result = await apiRequest('/rag/documents/delete', 'POST', {
+          selected_docs: selectedDocs
+        });
+
+        const available = Array.isArray(result.available) ? result.available : [];
+        const selected = Array.isArray(result.selected) ? result.selected : [];
+        const deleted = Array.isArray(result.deleted) ? result.deleted : [];
+
+        renderDocList(available, selected);
+        statusEl.textContent = `Deleted ${deleted.length} document(s)`;
+      } catch (error) {
+        statusWithError('Failed to delete documents', error);
       }
-
-      const result = await apiRequest('/rag/documents/delete', 'POST', {
-        selected_docs: selectedDocs
-      });
-
-      const available = Array.isArray(result.available) ? result.available : [];
-      const selected = Array.isArray(result.selected) ? result.selected : [];
-      const deleted = Array.isArray(result.deleted) ? result.deleted : [];
-
-      renderDocList(available, selected);
-      statusEl.textContent = `Deleted ${deleted.length} document(s)`;
-    } catch (error) {
-      statusWithError('Failed to delete documents', error);
-    }
+    });
   });
 
   askFromOcrBtn.addEventListener('click', async () => {
-    try {
-      const result = await apiRequest('/screen/ocr/ask', 'POST');
-      if (result.answer) {
-        answerEl.textContent = result.answer;
+    await runWithBusy(askFromOcrBtn, 'Generating...', async () => {
+      try {
+        const result = await apiRequest('/screen/ocr/ask', 'POST', null, 180000);
+        if (result.answer) {
+          answerEl.textContent = result.answer;
+        }
+        statusEl.textContent = 'Generated answer from OCR';
+      } catch (error) {
+        statusWithError('Failed to answer from OCR', error);
       }
-      statusEl.textContent = 'Generated answer from OCR';
-    } catch (error) {
-      statusWithError('Failed to answer from OCR', error);
-    }
+    });
   });
 }
 
