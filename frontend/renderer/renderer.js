@@ -1,4 +1,5 @@
 const statusEl = document.getElementById('status');
+const aiStatusEl = document.getElementById('aiStatus');
 const answerEl = document.getElementById('answer');
 const transcriptTextEl = document.getElementById('transcriptText');
 const ocrTextEl = document.getElementById('ocrText');
@@ -196,6 +197,18 @@ async function refreshOcrStatus() {
   }
 }
 
+async function refreshLlmStatus() {
+  try {
+    const status = await apiRequest('/llm/status');
+    const provider = String(status.provider || 'none');
+    const available = Boolean(status.available);
+    const lastError = status.last_error ? ` (${status.last_error})` : '';
+    aiStatusEl.textContent = `AI status: ${available ? `connected (${provider})` : 'disconnected'}${lastError}`;
+  } catch (error) {
+    aiStatusEl.textContent = `AI status: unavailable (${parseErrorText(error?.message || '', 'error')})`;
+  }
+}
+
 function getSelectedDocNames() {
   return Array.from(docList.querySelectorAll('input[type="checkbox"]:checked')).map((input) => input.value);
 }
@@ -374,6 +387,7 @@ async function bootstrapControls() {
 
     await refreshDocuments();
     await refreshOcrStatus();
+    await refreshLlmStatus();
   } catch {
     statusEl.textContent = 'Backend control API unavailable';
   }
@@ -381,6 +395,10 @@ async function bootstrapControls() {
   setInterval(() => {
     refreshOcrStatus();
   }, 2000);
+
+  setInterval(() => {
+    refreshLlmStatus();
+  }, 3000);
 
   refreshDocsBtn.addEventListener('click', async () => {
     try {

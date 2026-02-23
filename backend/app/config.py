@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -32,6 +33,12 @@ class Settings(BaseModel):
     enable_screen_ocr: bool = True
     screen_ocr_interval_ms: int = 1200
     screen_ocr_min_chars: int = 12
+    llm_provider: str = "auto"
+    openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
+    openai_model: str = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+    ollama_base_url: str = os.getenv("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    ollama_model: str = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
+    llm_timeout_seconds: int = 25
 
 
 settings = Settings()

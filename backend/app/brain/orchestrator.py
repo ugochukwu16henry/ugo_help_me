@@ -1,6 +1,7 @@
 import time
 
 from app.config import settings
+from app.llm.service import llm_service
 from app.rag.service import rag_service
 
 
@@ -44,11 +45,15 @@ class BrainOrchestrator:
 
     def answer_question(self, question: str) -> str:
         context_chunks = rag_service.retrieve(question)
+        context = "\n\n".join(context_chunks[:3]) if context_chunks else "No indexed personal context available."
+
+        llm_answer = llm_service.generate(question=question, context=context)
+        if llm_answer:
+            return llm_answer
 
         if not context_chunks:
-            return "No personal context retrieved yet. Build index and add docs to data/my_docs."
+            return "No personal context retrieved yet and no LLM provider connected. Build index and connect OpenAI/Ollama."
 
-        context = "\n\n".join(context_chunks[:3])
         return (
             "Interview-style answer draft based on personal context:\n\n"
             f"Question: {question}\n\n"

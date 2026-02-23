@@ -8,6 +8,7 @@ from app.brain.orchestrator import brain
 from app.brain.runtime import brain_runtime
 from app.config import settings
 from app.ingestion.manager import ingestion_manager
+from app.llm.service import llm_service
 from app.models import (
     DocumentSelectionRequest,
     BuildIndexResponse,
@@ -63,6 +64,11 @@ async def shutdown_event():
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.get("/llm/status")
+async def llm_status() -> dict:
+    return llm_service.status()
 
 
 @app.post("/rag/build", response_model=BuildIndexResponse)
