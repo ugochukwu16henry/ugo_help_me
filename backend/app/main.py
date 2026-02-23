@@ -1,8 +1,12 @@
+from pathlib import Path
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi import HTTPException
+from fastapi import File, UploadFile
 
 from app.brain.orchestrator import brain
 from app.brain.runtime import brain_runtime
+from app.config import settings
 from app.ingestion.manager import ingestion_manager
 from app.models import (
     DocumentSelectionRequest,
@@ -17,6 +21,26 @@ from app.transport.overlay_hub import overlay_hub
 
 app = FastAPI(title="UGO Assist Backend")
 transcription_service = TranscriptionService(ingestion_manager, brain_runtime, overlay_hub)
+
+ALLOWED_DOC_EXTENSIONS = {".pdf", ".docx", ".txt"}
+
+
+def _safe_destination(filename: str) -> Path:
+    safe_name = Path(filename or "upload.bin").name
+    stem = Path(safe_name).stem or "upload"
+    suffix = Path(safe_name).suffix.lower()
+    if suffix not in ALLOWED_DOC_EXTENSIONS:
+        raise ValueError("Unsupported file type. Allowed: .pdf, .docx, .txt")
+
+    docs_dir = settings.docs_dir
+    docs_dir.mkdir(parents=True, exist_ok=True)
+
+    destination = docs_dir / f"{stem}{suffix}"
+    counter = 1
+    while destination.exists():
+        destination = docs_dir / f"{stem}_{counter}{suffix}"
+        counter += 1
+    return destination
 
 
 @app.on_event("startup")
@@ -41,6 +65,32 @@ async def health():
 async def build_rag_index():
     count = rag_service.build_index()
     return BuildIndexResponse(indexed_chunks=count)
+
+
+@app.post("/rag/upload")
+async def rag_upload(files: list[UploadFile] = File(...)) -> dict:
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    saved: list[str] = []
+    rejected: list[str] = []
+
+    for file in files:
+        try:
+            destination = _safe_destination(file.filename or "")
+        except ValueError:
+            rejected.append(file.filename or "unknown")
+            continue
+
+        content = await file.read()
+        destination.write_bytes(content)
+        saved.append(destination.name)
+
+    return {
+        "uploaded": saved,
+        "rejected": rejected,
+        "available": rag_service.list_available_docs(),
+    }
 
 
 @app.get("/rag/documents")

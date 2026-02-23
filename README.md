@@ -58,6 +58,7 @@ curl http://127.0.0.1:8765/brain/runtime/status
 curl http://127.0.0.1:8765/transcription/status
 curl -X POST http://127.0.0.1:8765/transcription/mock -H "Content-Type: application/json" -d "{\"text\":\"Can you explain my key project?\"}"
 curl http://127.0.0.1:8765/rag/documents
+curl -X POST http://127.0.0.1:8765/rag/upload -F "files=@my_resume.pdf"
 curl -X POST http://127.0.0.1:8765/rag/documents/select -H "Content-Type: application/json" -d "{\"selected_docs\":[\"my_resume.pdf\"]}"
 curl http://127.0.0.1:8765/ingestion/status
 curl -X POST http://127.0.0.1:8765/ingestion/stop
@@ -93,7 +94,9 @@ curl -X POST http://127.0.0.1:8765/ingestion/screen/focus -H "Content-Type: appl
 - Use tray icon menu to show/hide overlay, lock/unlock controls, or quit.
 - Controls available in overlay:
   - start/stop ingestion
+  - upload `.pdf`, `.docx`, `.txt` files directly from frontend
   - build RAG index directly
+  - if files are selected in upload input, `Build RAG` uploads them first then rebuilds index
   - type a question and click `Ask` (or press Enter) for immediate generation
   - choose which documents are active for RAG answers, then click `Apply Selected Docs`
   - set focus mode (`full`, `center`, `custom`)

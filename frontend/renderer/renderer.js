@@ -9,6 +9,8 @@ const startBtn = document.getElementById('startBtn');
 const stopBtn = document.getElementById('stopBtn');
 const questionInput = document.getElementById('questionInput');
 const askBtn = document.getElementById('askBtn');
+const uploadInput = document.getElementById('uploadInput');
+const uploadBtn = document.getElementById('uploadBtn');
 const buildRagBtn = document.getElementById('buildRagBtn');
 const modeSelect = document.getElementById('modeSelect');
 const monitorSelect = document.getElementById('monitorSelect');
@@ -42,6 +44,25 @@ async function apiRequest(path, method = 'GET', body = null) {
   if (!response.ok) {
     const text = await response.text();
     throw new Error(text || `Request failed: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+async function uploadFiles(files) {
+  const formData = new FormData();
+  for (const file of files) {
+    formData.append('files', file, file.name);
+  }
+
+  const response = await fetch(`${apiBase}/rag/upload`, {
+    method: 'POST',
+    body: formData
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    throw new Error(text || `Upload failed: ${response.status}`);
   }
 
   return response.json();
@@ -213,10 +234,38 @@ async function bootstrapControls() {
 
   buildRagBtn.addEventListener('click', async () => {
     try {
+      const pendingFiles = Array.from(uploadInput.files || []);
+      if (pendingFiles.length > 0) {
+        const uploadResult = await uploadFiles(pendingFiles);
+        uploadInput.value = '';
+        const uploadedCount = Array.isArray(uploadResult.uploaded) ? uploadResult.uploaded.length : 0;
+        statusEl.textContent = `Uploaded ${uploadedCount} file(s), building RAG...`;
+      }
+
       const result = await apiRequest('/rag/build', 'POST');
       statusEl.textContent = `RAG built: ${result.indexed_chunks} chunks`;
+      await refreshDocuments();
     } catch {
       statusEl.textContent = 'RAG build failed';
+    }
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    const files = Array.from(uploadInput.files || []);
+    if (files.length === 0) {
+      statusEl.textContent = 'Choose files first';
+      return;
+    }
+
+    try {
+      const result = await uploadFiles(files);
+      uploadInput.value = '';
+      const uploaded = Array.isArray(result.uploaded) ? result.uploaded : [];
+      const rejected = Array.isArray(result.rejected) ? result.rejected : [];
+      await refreshDocuments();
+      statusEl.textContent = `Uploaded ${uploaded.length} file(s)${rejected.length ? `, rejected ${rejected.length}` : ''}`;
+    } catch {
+      statusEl.textContent = 'Upload failed';
     }
   });
 
