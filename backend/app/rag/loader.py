@@ -14,7 +14,12 @@ def load_documents(docs_dir: Path):
         ("**/*.txt", TextLoader),
         ("**/*.docx", Docx2txtLoader),
     ):
-        loaded = DirectoryLoader(str(docs_dir), glob=pattern, loader_cls=loader).load()
+        loaded = DirectoryLoader(
+            str(docs_dir),
+            glob=pattern,
+            loader_cls=loader,
+            silent_errors=True,
+        ).load()
         documents.extend(loaded)
 
     return documents
