@@ -166,14 +166,54 @@ async def screen_ocr_status():
 
 @app.post("/screen/ocr/ask")
 async def screen_ocr_ask() -> dict:
-    text = (screen_ocr_service.latest_text() or "").strip()
+    status = ingestion_manager.status()
+    focus_before = ingestion_manager.get_screen_focus()
+    if not status.get("screen", {}).get("running", False):
+        ingestion_manager.start()
+        await asyncio.sleep(1.0)
+
+    text = (screen_ocr_service.latest_text(relaxed=True) or "").strip()
     if not text:
-        raise HTTPException(status_code=400, detail="No OCR text available yet")
+        for _ in range(4):
+            await asyncio.sleep(0.6)
+            text = (screen_ocr_service.latest_text(relaxed=True) or "").strip()
+            if text:
+                break
+
+    used_full_fallback = False
+    if not text:
+        monitor_index = int(focus_before.get("monitor_index", 1) or 1)
+        try:
+            ingestion_manager.set_screen_focus({"mode": "full", "monitor_index": monitor_index})
+            used_full_fallback = True
+            await asyncio.sleep(1.4)
+            text = (screen_ocr_service.latest_text(relaxed=True) or "").strip()
+        finally:
+            ingestion_manager.set_screen_focus(
+                {
+                    "mode": focus_before.get("mode", "center"),
+                    "monitor_index": int(focus_before.get("monitor_index", 1) or 1),
+                    "ratio": focus_before.get("ratio", settings.capture_zone_ratio),
+                    "left": (focus_before.get("custom_region") or {}).get("left", 0),
+                    "top": (focus_before.get("custom_region") or {}).get("top", 0),
+                    "width": (focus_before.get("custom_region") or {}).get("width", 1),
+                    "height": (focus_before.get("custom_region") or {}).get("height", 1),
+                }
+            )
+
+    if not text:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "No OCR text available yet. Keep target text visible and high-contrast in selected focus area, "
+                "or switch to full monitor mode."
+            ),
+        )
 
     question = text if text.endswith("?") else f"{text} ?"
     answer = await asyncio.to_thread(brain.answer_question, question)
     await overlay_hub.broadcast({"type": "answer", "message": answer})
-    return {"question": question, "answer": answer}
+    return {"question": question, "answer": answer, "used_full_fallback": used_full_fallback}
 
 
 @app.post("/transcription/mock")

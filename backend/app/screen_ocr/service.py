@@ -26,6 +26,7 @@ class ScreenOCRService:
         self._ocr_engine: Any = None
         self._last_error: str | None = None
         self._last_text: str = ""
+        self._last_raw_text: str = ""
         self._frames_seen = 0
         self._frames_processed = 0
         self._last_submitted_text: str = ""
@@ -54,10 +55,13 @@ class ScreenOCRService:
             "frames_seen": self._frames_seen,
             "frames_processed": self._frames_processed,
             "last_text": self._last_text,
+            "last_raw_text": self._last_raw_text,
             "last_error": self._last_error,
         }
 
-    def latest_text(self) -> str:
+    def latest_text(self, relaxed: bool = False) -> str:
+        if relaxed and self._last_raw_text:
+            return self._last_raw_text
         return self._last_text
 
     async def _run(self) -> None:
@@ -94,7 +98,10 @@ class ScreenOCRService:
 
             self._frames_seen += 1
             text = await asyncio.to_thread(self._extract_text, latest_event)
-            if text and text != self._last_text:
+            if text:
+                self._last_raw_text = text
+
+            if text and len(text) >= int(settings.screen_ocr_min_chars) and text != self._last_text:
                 self._last_text = text
                 await self.overlay_hub.broadcast(
                     {"type": "transcript", "message": f"[screen] {text}", "source": "screen"}
@@ -140,9 +147,6 @@ class ScreenOCRService:
                 texts.append(text)
 
         merged = " ".join(texts).strip()
-        if len(merged) < int(settings.screen_ocr_min_chars):
-            return ""
-
         return merged
 
     def _should_submit_to_brain(self, text: str) -> bool:
