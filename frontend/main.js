@@ -5,8 +5,14 @@ let mainWindow;
 let interactiveMode = false;
 let tray = null;
 let isQuitting = false;
+const startHidden = true;
 
-const runtimeDataPath = path.join(app.getPath('temp'), `ugo-overlay-runtime-${process.pid}`);
+const singleInstanceLock = app.requestSingleInstanceLock();
+if (!singleInstanceLock) {
+  app.quit();
+}
+
+const runtimeDataPath = path.join(app.getPath('temp'), 'ugo-overlay-runtime');
 app.setPath('userData', runtimeDataPath);
 app.setPath('sessionData', runtimeDataPath);
 
@@ -87,6 +93,7 @@ function createWindow() {
     height: 310,
     frame: false,
     transparent: true,
+    show: false,
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
@@ -102,6 +109,10 @@ function createWindow() {
   applyInteractionMode();
 
   mainWindow.loadFile(path.join(__dirname, 'renderer', 'index.html'));
+
+  if (!startHidden) {
+    mainWindow.show();
+  }
 
   mainWindow.on('close', (event) => {
     if (isQuitting) {
@@ -137,6 +148,18 @@ app.whenReady().then(() => {
 
   createWindow();
   createTray();
+
+  app.on('second-instance', () => {
+    if (!mainWindow) {
+      return;
+    }
+    if (!mainWindow.isVisible()) {
+      mainWindow.show();
+    }
+    mainWindow.focus();
+    applyInteractionMode();
+    refreshTrayMenu();
+  });
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
