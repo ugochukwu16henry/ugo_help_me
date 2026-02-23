@@ -57,6 +57,8 @@ curl -X POST http://127.0.0.1:8765/brain/ingest -H "Content-Type: application/js
 curl http://127.0.0.1:8765/brain/runtime/status
 curl http://127.0.0.1:8765/transcription/status
 curl -X POST http://127.0.0.1:8765/transcription/mock -H "Content-Type: application/json" -d "{\"text\":\"Can you explain my key project?\"}"
+curl http://127.0.0.1:8765/rag/documents
+curl -X POST http://127.0.0.1:8765/rag/documents/select -H "Content-Type: application/json" -d "{\"selected_docs\":[\"my_resume.pdf\"]}"
 curl http://127.0.0.1:8765/ingestion/status
 curl -X POST http://127.0.0.1:8765/ingestion/stop
 curl -X POST http://127.0.0.1:8765/ingestion/start
@@ -93,6 +95,7 @@ curl -X POST http://127.0.0.1:8765/ingestion/screen/focus -H "Content-Type: appl
   - start/stop ingestion
   - build RAG index directly
   - type a question and click `Ask` (or press Enter) for immediate generation
+  - choose which documents are active for RAG answers, then click `Apply Selected Docs`
   - set focus mode (`full`, `center`, `custom`)
   - apply custom region values
 - Press `Ctrl+Shift+I` again (or click `Lock`) to return to click-through mode.
