@@ -17,8 +17,10 @@ class BrainOrchestrator:
         self._buffer.append(cleaned)
         self._last_activity_ts = time.time()
 
-        if "?" in cleaned:
+        if "?" in cleaned or self._looks_like_question(cleaned):
             question = self._collapse_buffer()
+            if not question.endswith("?"):
+                question = f"{question} ?"
             return self.answer_question(question)
 
         return None
@@ -32,8 +34,11 @@ class BrainOrchestrator:
             return None
 
         question = self._collapse_buffer()
-        if not question.endswith("?"):
+        if not (question.endswith("?") or self._looks_like_question(question)):
             return None
+
+        if not question.endswith("?"):
+            question = f"{question} ?"
 
         return self.answer_question(question)
 
@@ -49,6 +54,26 @@ class BrainOrchestrator:
             f"Question: {question}\n\n"
             f"Relevant context:\n{context}"
         )
+
+    def _looks_like_question(self, text: str) -> bool:
+        lowered = (text or "").lower()
+        keywords = (
+            "implement",
+            "write a function",
+            "build",
+            "create",
+            "solve",
+            "task",
+            "problem",
+            "leetcode",
+            "algorithm",
+            "bug",
+            "fix",
+            "refactor",
+            "optimize",
+            "explain",
+        )
+        return any(token in lowered for token in keywords)
 
     def _collapse_buffer(self) -> str:
         text = " ".join(self._buffer).strip()

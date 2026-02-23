@@ -28,6 +28,7 @@ class ScreenOCRService:
         self._last_text: str = ""
         self._frames_seen = 0
         self._frames_processed = 0
+        self._last_submitted_text: str = ""
 
     async def start(self) -> None:
         if self._task and not self._task.done():
@@ -99,8 +100,9 @@ class ScreenOCRService:
                     {"type": "transcript", "message": f"[screen] {text}", "source": "screen"}
                 )
 
-                if "?" in text:
+                if self._should_submit_to_brain(text):
                     await self.brain_runtime.submit_transcript(text)
+                    self._last_submitted_text = text
 
             await asyncio.sleep(interval)
 
@@ -142,3 +144,33 @@ class ScreenOCRService:
             return ""
 
         return merged
+
+    def _should_submit_to_brain(self, text: str) -> bool:
+        cleaned = (text or "").strip()
+        if not cleaned:
+            return False
+
+        if cleaned == self._last_submitted_text:
+            return False
+
+        lowered = cleaned.lower()
+        if "?" in lowered:
+            return True
+
+        keywords = (
+            "implement",
+            "write a function",
+            "build",
+            "create",
+            "solve",
+            "task",
+            "problem",
+            "leetcode",
+            "algorithm",
+            "bug",
+            "fix",
+            "refactor",
+            "optimize",
+            "explain",
+        )
+        return any(token in lowered for token in keywords)
