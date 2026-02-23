@@ -110,6 +110,13 @@ async def rag_documents_select(payload: DocumentSelectionRequest) -> dict:
     }
 
 
+@app.post("/rag/documents/delete")
+async def rag_documents_delete(payload: DocumentSelectionRequest) -> dict:
+    if not payload.selected_docs:
+        raise HTTPException(status_code=400, detail="No documents selected for deletion")
+    return rag_service.delete_docs(payload.selected_docs)
+
+
 @app.post("/brain/ask")
 async def ask_brain(payload: QueryRequest):
     answer = brain.answer_question(payload.question)

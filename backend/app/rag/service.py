@@ -37,6 +37,36 @@ class RAGService:
         self._selected_docs = chosen
         return self.get_selected_docs()
 
+    def delete_docs(self, docs: list[str]) -> dict:
+        available = set(self.list_available_docs())
+
+        deleted: list[str] = []
+        missing: list[str] = []
+
+        for doc in docs:
+            safe_name = Path(doc).name
+            if safe_name not in available:
+                missing.append(doc)
+                continue
+
+            file_path = settings.docs_dir / safe_name
+            if not file_path.exists():
+                missing.append(doc)
+                continue
+
+            file_path.unlink(missing_ok=True)
+            deleted.append(safe_name)
+
+        if deleted and self._selected_docs:
+            self._selected_docs = self._selected_docs - set(deleted)
+
+        return {
+            "deleted": sorted(set(deleted)),
+            "missing": sorted(set(missing)),
+            "available": self.list_available_docs(),
+            "selected": self.get_selected_docs(),
+        }
+
     def build_index(self) -> int:
         documents = load_documents(settings.docs_dir)
         if not documents:

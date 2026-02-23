@@ -26,6 +26,7 @@ const docSummary = document.getElementById('docSummary');
 const docList = document.getElementById('docList');
 const refreshDocsBtn = document.getElementById('refreshDocsBtn');
 const applyDocsBtn = document.getElementById('applyDocsBtn');
+const deleteDocsBtn = document.getElementById('deleteDocsBtn');
 
 const wsUrl = 'ws://127.0.0.1:8765/ws/overlay';
 const apiBase = 'http://127.0.0.1:8765';
@@ -375,6 +376,29 @@ async function bootstrapControls() {
       statusEl.textContent = `Applied docs: ${selected.length}`;
     } catch (error) {
       statusWithError('Failed to apply document selection', error);
+    }
+  });
+
+  deleteDocsBtn.addEventListener('click', async () => {
+    try {
+      const selectedDocs = getSelectedDocNames();
+      if (selectedDocs.length === 0) {
+        statusEl.textContent = 'Select document(s) to delete';
+        return;
+      }
+
+      const result = await apiRequest('/rag/documents/delete', 'POST', {
+        selected_docs: selectedDocs
+      });
+
+      const available = Array.isArray(result.available) ? result.available : [];
+      const selected = Array.isArray(result.selected) ? result.selected : [];
+      const deleted = Array.isArray(result.deleted) ? result.deleted : [];
+
+      renderDocList(available, selected);
+      statusEl.textContent = `Deleted ${deleted.length} document(s)`;
+    } catch (error) {
+      statusWithError('Failed to delete documents', error);
     }
   });
 }
