@@ -30,6 +30,32 @@ const applyDocsBtn = document.getElementById('applyDocsBtn');
 const wsUrl = 'ws://127.0.0.1:8765/ws/overlay';
 const apiBase = 'http://127.0.0.1:8765';
 
+function parseErrorText(text, fallback) {
+  const raw = String(text || '').trim();
+  if (!raw) {
+    return fallback;
+  }
+
+  try {
+    const json = JSON.parse(raw);
+    if (typeof json.detail === 'string' && json.detail.trim()) {
+      return json.detail.trim();
+    }
+    if (Array.isArray(json.detail) && json.detail.length > 0) {
+      return String(json.detail[0]?.msg || fallback);
+    }
+  } catch {
+    // not JSON, keep raw fallback below
+  }
+
+  return raw.length > 180 ? `${raw.slice(0, 180)}...` : raw;
+}
+
+function statusWithError(prefix, error) {
+  const message = parseErrorText(error?.message || '', 'Unknown error');
+  statusEl.textContent = `${prefix}: ${message}`;
+}
+
 async function apiRequest(path, method = 'GET', body = null) {
   const options = {
     method,
@@ -45,7 +71,7 @@ async function apiRequest(path, method = 'GET', body = null) {
   const response = await fetch(`${apiBase}${path}`, options);
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Request failed: ${response.status}`);
+    throw new Error(parseErrorText(text, `Request failed (${response.status})`));
   }
 
   return response.json();
@@ -64,7 +90,7 @@ async function uploadFiles(files) {
 
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `Upload failed: ${response.status}`);
+    throw new Error(parseErrorText(text, `Upload failed (${response.status})`));
   }
 
   return response.json();
@@ -221,8 +247,8 @@ async function bootstrapControls() {
         answerEl.textContent = result.answer;
       }
       statusEl.textContent = 'Answer generated';
-    } catch {
-      statusEl.textContent = 'Failed to generate answer';
+    } catch (error) {
+      statusWithError('Failed to generate answer', error);
     }
   });
 
@@ -252,8 +278,8 @@ async function bootstrapControls() {
       const result = await apiRequest('/rag/build', 'POST');
       statusEl.textContent = `RAG built: ${result.indexed_chunks} chunks`;
       await refreshDocuments();
-    } catch {
-      statusEl.textContent = 'RAG build failed';
+    } catch (error) {
+      statusWithError('RAG build failed', error);
     }
   });
 
@@ -271,16 +297,16 @@ async function bootstrapControls() {
       const rejected = Array.isArray(result.rejected) ? result.rejected : [];
       await refreshDocuments();
       statusEl.textContent = `Uploaded ${uploaded.length} file(s)${rejected.length ? `, rejected ${rejected.length}` : ''}`;
-    } catch {
-      statusEl.textContent = 'Upload failed';
+    } catch (error) {
+      statusWithError('Upload failed', error);
     }
   });
 
   applyFocusBtn.addEventListener('click', async () => {
     try {
       await applyFocusFromInputs();
-    } catch {
-      statusEl.textContent = 'Failed to apply focus';
+    } catch (error) {
+      statusWithError('Failed to apply focus', error);
     }
   });
 
@@ -302,8 +328,8 @@ async function bootstrapControls() {
 
       await applyFocusFromInputs();
       statusEl.textContent = 'Focus region selected and applied';
-    } catch {
-      statusEl.textContent = 'Failed to pick focus area';
+    } catch (error) {
+      statusWithError('Failed to pick focus area', error);
     }
   });
 
@@ -332,8 +358,8 @@ async function bootstrapControls() {
     try {
       await refreshDocuments();
       statusEl.textContent = 'Document list refreshed';
-    } catch {
-      statusEl.textContent = 'Failed to refresh documents';
+    } catch (error) {
+      statusWithError('Failed to refresh documents', error);
     }
   });
 
@@ -347,8 +373,8 @@ async function bootstrapControls() {
       const selected = Array.isArray(result.selected) ? result.selected : [];
       renderDocList(available, selected);
       statusEl.textContent = `Applied docs: ${selected.length}`;
-    } catch {
-      statusEl.textContent = 'Failed to apply document selection';
+    } catch (error) {
+      statusWithError('Failed to apply document selection', error);
     }
   });
 }
