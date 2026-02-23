@@ -120,7 +120,7 @@ class LLMService:
             "model": model_name,
             "prompt": self._build_prompt(question, context),
             "stream": False,
-            "options": {"temperature": 0.2},
+            "options": {"temperature": 0.2, "num_predict": 220},
         }
 
         data = json.dumps(payload).encode("utf-8")
@@ -181,8 +181,8 @@ class LLMService:
         return names
 
     def _build_prompt(self, question: str, context: str) -> str:
-        safe_question = (question or "").strip()
-        safe_context = (context or "").strip()
+        safe_question = (question or "").strip()[:400]
+        safe_context = (context or "").strip()[:1600]
 
         return (
             "Use the context to answer the interview question. "
