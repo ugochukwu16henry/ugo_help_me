@@ -1,6 +1,8 @@
 const statusEl = document.getElementById('status');
 const answerEl = document.getElementById('answer');
 const transcriptTextEl = document.getElementById('transcriptText');
+const ocrTextEl = document.getElementById('ocrText');
+const ocrStatusEl = document.getElementById('ocrStatus');
 const hintEl = document.getElementById('hint');
 
 const toggleInteractionBtn = document.getElementById('toggleInteractionBtn');
@@ -172,6 +174,25 @@ async function refreshDocuments() {
   const available = Array.isArray(data.available) ? data.available : [];
   const selected = Array.isArray(data.selected) ? data.selected : [];
   renderDocList(available, selected);
+}
+
+async function refreshOcrStatus() {
+  try {
+    const status = await apiRequest('/screen/ocr/status');
+    const running = Boolean(status.running);
+    const ready = Boolean(status.engine_ready);
+    const processed = Number(status.frames_processed || 0);
+    const seen = Number(status.frames_seen || 0);
+    const lastError = status.last_error ? `, error: ${status.last_error}` : '';
+    ocrStatusEl.textContent = `OCR status: ${running ? 'running' : 'stopped'} • engine ${ready ? 'ready' : 'not ready'} • frames ${processed}/${seen}${lastError}`;
+
+    const latestText = String(status.last_text || '').trim();
+    if (latestText) {
+      ocrTextEl.textContent = latestText;
+    }
+  } catch (error) {
+    ocrStatusEl.textContent = `OCR status: unavailable (${parseErrorText(error?.message || '', 'error')})`;
+  }
 }
 
 function getSelectedDocNames() {
@@ -351,9 +372,14 @@ async function bootstrapControls() {
     }
 
     await refreshDocuments();
+    await refreshOcrStatus();
   } catch {
     statusEl.textContent = 'Backend control API unavailable';
   }
+
+  setInterval(() => {
+    refreshOcrStatus();
+  }, 2000);
 
   refreshDocsBtn.addEventListener('click', async () => {
     try {
@@ -425,6 +451,12 @@ function connect() {
 
       if (payload.type === 'transcript') {
         transcriptTextEl.textContent = payload.message;
+        if (payload.source === 'screen') {
+          const cleaned = String(payload.message || '').replace(/^\[screen\]\s*/i, '').trim();
+          if (cleaned) {
+            ocrTextEl.textContent = cleaned;
+          }
+        }
       }
     } catch {
       statusEl.textContent = 'Received malformed backend message';
