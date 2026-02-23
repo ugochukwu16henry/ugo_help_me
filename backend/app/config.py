@@ -20,6 +20,11 @@ class Settings(BaseModel):
     audio_sample_rate: int = 16000
     audio_channels: int = 1
     enable_native_audio_capture: bool = False
+    enable_transcription: bool = True
+    transcription_model_size: str = "base"
+    transcription_compute_type: str = "int8"
+    transcription_min_seconds: float = 1.6
+    vad_energy_threshold: int = 450
 
 
 settings = Settings()

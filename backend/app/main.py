@@ -11,18 +11,22 @@ from app.models import (
     TranscriptSegmentRequest,
 )
 from app.rag.service import rag_service
+from app.transcription.service import TranscriptionService
 from app.transport.overlay_hub import overlay_hub
 
 app = FastAPI(title="UGO Assist Backend")
+transcription_service = TranscriptionService(ingestion_manager, brain_runtime)
 
 
 @app.on_event("startup")
 async def startup_event():
     await brain_runtime.start()
+    await transcription_service.start()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
+    await transcription_service.stop()
     await brain_runtime.stop()
     ingestion_manager.stop()
 
@@ -62,6 +66,17 @@ async def silence_tick():
 @app.get("/brain/runtime/status")
 async def brain_runtime_status():
     return brain_runtime.status()
+
+
+@app.get("/transcription/status")
+async def transcription_status():
+    return transcription_service.status()
+
+
+@app.post("/transcription/mock")
+async def transcription_mock(payload: TranscriptSegmentRequest):
+    await transcription_service.submit_mock_text(payload.text)
+    return {"queued": True, "runtime": brain_runtime.status()}
 
 
 @app.get("/ingestion/status")

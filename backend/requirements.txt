@@ -9,3 +9,4 @@ pypdf>=5.0.1
 python-docx>=1.1.2
 mss>=10.0.0
 pyaudiowpatch>=0.2.12.7
+faster-whisper>=1.1.1
