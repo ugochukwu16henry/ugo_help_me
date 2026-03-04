@@ -89,9 +89,14 @@ function refreshTrayMenu() {
 }
 
 function createWindow() {
+  const primaryDisplay = screen.getPrimaryDisplay();
+  const { x, y, width, height } = primaryDisplay.bounds;
+
   mainWindow = new BrowserWindow({
-    width: 900,
-    height: 310,
+    x,
+    y,
+    width,
+    height,
     frame: false,
     transparent: true,
     show: false,
