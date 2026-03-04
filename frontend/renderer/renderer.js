@@ -31,6 +31,14 @@ const refreshDocsBtn = document.getElementById('refreshDocsBtn');
 const applyDocsBtn = document.getElementById('applyDocsBtn');
 const deleteDocsBtn = document.getElementById('deleteDocsBtn');
 const askFromOcrBtn = document.getElementById('askFromOcrBtn');
+const teachingUploadInput = document.getElementById('teachingUploadInput');
+const teachingUploadBtn = document.getElementById('teachingUploadBtn');
+const teachingDocsList = document.getElementById('teachingDocsList');
+const teachingPreviewTitle = document.getElementById('teachingPreviewTitle');
+const teachingPreviewFrame = document.getElementById('teachingPreviewFrame');
+const teachingPreviewMessage = document.getElementById('teachingPreviewMessage');
+
+let teachingDocs = [];
 
 const wsUrl = 'ws://127.0.0.1:8765/ws/overlay';
 const apiBase = 'http://127.0.0.1:8765';
@@ -179,6 +187,78 @@ function monitorLabel(monitor) {
   const left = monitor.left ?? 0;
   const top = monitor.top ?? 0;
   return `#${index} ${width}x${height} @ (${left},${top})`;
+}
+
+function renderTeachingDocs() {
+  if (!teachingDocsList) {
+    return;
+  }
+
+  teachingDocsList.innerHTML = '';
+
+  if (!teachingDocs || teachingDocs.length === 0) {
+    teachingDocsList.className = 'teaching-list teaching-empty';
+    teachingDocsList.textContent = 'No teaching docs yet. Add some above.';
+    return;
+  }
+
+  teachingDocsList.className = 'teaching-list';
+
+  for (const doc of teachingDocs) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'teaching-doc-item';
+    button.title = doc.name;
+    button.textContent = doc.name;
+    button.addEventListener('click', () => {
+      showTeachingPreview(doc);
+    });
+    teachingDocsList.appendChild(button);
+  }
+}
+
+function showTeachingPreview(doc) {
+  if (!teachingPreviewTitle || !teachingPreviewFrame || !teachingPreviewMessage) {
+    return;
+  }
+
+  teachingPreviewTitle.textContent = doc.name;
+
+  const ext = (doc.name.split('.').pop() || '').toLowerCase();
+  const previewableExtensions = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp', 'txt', 'svg', 'html', 'htm'];
+
+  if (previewableExtensions.includes(ext)) {
+    teachingPreviewFrame.style.display = 'block';
+    teachingPreviewFrame.src = doc.url;
+    teachingPreviewMessage.style.display = 'none';
+    teachingPreviewMessage.textContent = '';
+  } else {
+    teachingPreviewFrame.style.display = 'none';
+    teachingPreviewFrame.src = 'about:blank';
+    teachingPreviewMessage.style.display = 'flex';
+    teachingPreviewMessage.textContent =
+      'Preview for this file type is not available here, but it is saved in your teaching area so you can open it on your computer while presenting.';
+  }
+}
+
+function addTeachingDocs(files) {
+  const pending = Array.from(files || []);
+  if (pending.length === 0) {
+    statusEl.textContent = 'Choose teaching files first';
+    return;
+  }
+
+  const newDocs = pending.map((file) => ({
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    name: file.name,
+    type: file.type || '',
+    size: file.size || 0,
+    url: URL.createObjectURL(file)
+  }));
+
+  teachingDocs = teachingDocs.concat(newDocs);
+  renderTeachingDocs();
+  statusEl.textContent = `Added ${newDocs.length} teaching document(s)`;
 }
 
 function renderDocList(available, selected) {
@@ -518,6 +598,21 @@ async function bootstrapControls() {
         statusWithError('Failed to answer from OCR', error);
       }
     });
+  });
+
+  if (teachingUploadBtn && teachingUploadInput) {
+    teachingUploadBtn.addEventListener('click', () => {
+      addTeachingDocs(teachingUploadInput.files);
+      teachingUploadInput.value = '';
+    });
+  }
+
+  window.addEventListener('beforeunload', () => {
+    for (const doc of teachingDocs) {
+      if (doc.url) {
+        URL.revokeObjectURL(doc.url);
+      }
+    }
   });
 }
 

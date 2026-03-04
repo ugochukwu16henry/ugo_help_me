@@ -147,6 +147,148 @@
         font-size: 12px;
         cursor: pointer;
       }
+
+      .teaching-section {
+        margin-top: 10px;
+        padding: 8px;
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        font-size: 12px;
+      }
+
+      .teaching-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+
+      .teaching-title {
+        font-weight: 600;
+        letter-spacing: 0.03em;
+        text-transform: uppercase;
+        font-size: 11px;
+        opacity: 0.9;
+      }
+
+      .teaching-subtitle {
+        font-size: 11px;
+        opacity: 0.75;
+      }
+
+      .teaching-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-bottom: 6px;
+      }
+
+      .teaching-controls input,
+      .teaching-controls button {
+        pointer-events: auto;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(0, 0, 0, 0.45);
+        color: #fff;
+        border-radius: 6px;
+        padding: 4px 6px;
+        font-size: 12px;
+      }
+
+      .teaching-controls button {
+        cursor: pointer;
+      }
+
+      .teaching-body {
+        display: flex;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .teaching-list-wrapper {
+        flex: 0 0 150px;
+        max-height: 180px;
+        overflow: auto;
+      }
+
+      .teaching-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        margin-top: 4px;
+      }
+
+      .teaching-doc-item {
+        pointer-events: auto;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.4);
+        padding: 3px 6px;
+        font-size: 11px;
+        text-align: left;
+        color: #fff;
+        cursor: pointer;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      .teaching-doc-item:hover {
+        background: rgba(255, 255, 255, 0.08);
+      }
+
+      .teaching-empty {
+        font-size: 11px;
+        opacity: 0.7;
+        margin-top: 4px;
+      }
+
+      .teaching-preview {
+        flex: 1 1 auto;
+        min-width: 220px;
+        max-height: 190px;
+        border-radius: 6px;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(0, 0, 0, 0.3);
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+
+      .teaching-preview-title {
+        font-size: 12px;
+        font-weight: 500;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+        overflow: hidden;
+      }
+
+      .teaching-preview-inner {
+        flex: 1 1 auto;
+        position: relative;
+        overflow: hidden;
+        border-radius: 4px;
+        background: rgba(0, 0, 0, 0.45);
+      }
+
+      .teaching-preview-frame {
+        border: none;
+        width: 100%;
+        height: 100%;
+      }
+
+      .teaching-preview-message {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 8px;
+        text-align: center;
+        font-size: 11px;
+        opacity: 0.8;
+      }
     </style>
   </head>
   <body>
@@ -205,6 +347,36 @@
           <button id="refreshDocsBtn">Refresh Docs</button>
           <button id="applyDocsBtn">Apply Selected Docs</button>
           <button id="deleteDocsBtn">Delete Selected</button>
+        </div>
+      </div>
+      <div class="teaching-section">
+        <div class="teaching-header">
+          <div class="teaching-title">Teaching & Presentation docs</div>
+          <div class="teaching-subtitle">Upload any files you want to show while teaching. Not used by AI.</div>
+        </div>
+        <div class="teaching-controls">
+          <input id="teachingUploadInput" type="file" multiple style="max-width:260px" />
+          <button id="teachingUploadBtn" type="button">Add to Teaching Area</button>
+        </div>
+        <div class="teaching-body">
+          <div class="teaching-list-wrapper">
+            <div class="caption">Your files</div>
+            <div id="teachingDocsList" class="teaching-list teaching-empty">No teaching docs yet. Add some above.</div>
+          </div>
+          <div class="teaching-preview">
+            <div id="teachingPreviewTitle" class="teaching-preview-title">Select a document to preview</div>
+            <div class="teaching-preview-inner">
+              <div id="teachingPreviewMessage" class="teaching-preview-message">
+                Upload and click a file to see it here. PDFs, images and text files will preview directly.
+              </div>
+              <iframe
+                id="teachingPreviewFrame"
+                class="teaching-preview-frame"
+                style="display: none"
+                sandbox="allow-same-origin allow-scripts"
+              ></iframe>
+            </div>
+          </div>
         </div>
       </div>
       <div id="answer" class="answer">Waiting for generated response...</div>
